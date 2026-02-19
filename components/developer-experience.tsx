@@ -112,7 +112,7 @@ export function DeveloperExperience() {
           lineHeight: 1,
         }}
       >
-        DEV
+        DEVELOPER
       </div>
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
