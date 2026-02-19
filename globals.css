@@ -4,6 +4,60 @@
 
 @layer base {
   :root {
+    /* shadcn/ui — required for ui/ components */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
+    --primary: 262 91% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 234 91% 58%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 280 94% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 262 91% 58%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 26%;
+    --sidebar-primary: 262 91% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 91%;
+    --sidebar-ring: 262 91% 58%;
+
+    --color-primary:      #8C5CF7;
+    --color-secondary:    #5567F7;
+    --color-accent:       #C85CFA;
+    --color-success:      #4ADE80;
+    --color-danger:       #EF4444;
+    --color-warning:      #FBBF24;
+
+    --color-bg:           #FAFAFA;
+    --color-surface-1:    #FFFFFF;
+    --color-surface-2:    #F4F4F6;
+    --color-surface-3:    #EBEBEF;
+    --color-border:       #E4E4E8;
+    --color-border-hover: #C8C8D0;
+    --color-text:         #0D0D0F;
+    --color-text-muted:   #6B6B75;
+
+    --font-sans: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif;
+    --font-mono: var(--font-geist-mono), 'Courier New', monospace;
+
+    --radius-xl:  1.5rem;
+    --radius-2xl: 2rem;
+  }
+
+  .dark {
     --background: 0 0% 4%;
     --foreground: 0 0% 98%;
     --card: 0 0% 7%;
@@ -23,7 +77,6 @@
     --border: 0 0% 18%;
     --input: 0 0% 18%;
     --ring: 262 91% 65%;
-    --radius: 0.75rem;
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: 262 91% 65%;
@@ -33,13 +86,6 @@
     --sidebar-border: 0 0% 18%;
     --sidebar-ring: 262 91% 65%;
 
-    --color-primary:      #8C5CF7;
-    --color-secondary:    #5567F7;
-    --color-accent:       #C85CFA;
-    --color-success:      #4ADE80;
-    --color-danger:       #EF4444;
-    --color-warning:      #FBBF24;
-
     --color-bg:           #0D0D0F;
     --color-surface-1:    #121214;
     --color-surface-2:    #1A1B1F;
@@ -48,27 +94,11 @@
     --color-border-hover: #3D3D42;
     --color-text:         #FFFFFF;
     --color-text-muted:   #A0A0A8;
-
-    --font-sans: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif;
-    --font-mono: var(--font-geist-mono), 'Courier New', monospace;
-
-    --radius-xl:  1.5rem;
-    --radius-2xl: 2rem;
-  }
-
-  .dark {
-    --color-bg:           #FAFAFA;
-    --color-surface-1:    #FFFFFF;
-    --color-surface-2:    #F4F4F6;
-    --color-surface-3:    #EBEBEF;
-    --color-border:       #E4E4E8;
-    --color-border-hover: #C8C8D0;
-    --color-text:         #0D0D0F;
-    --color-text-muted:   #6B6B75;
   }
 
   * {
     box-sizing: border-box;
+    border-color: hsl(var(--border));
   }
 
   html {
@@ -77,10 +107,11 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: var(--color-bg);
-    color: var(--color-text);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 200ms ease, color 200ms ease;
   }
 
   code, pre, kbd {
@@ -94,7 +125,10 @@
 }
 
 @layer utilities {
-  .text-balance { text-wrap: balance; }
+  .text-balance {
+    text-wrap: balance;
+  }
+
   .text-display {
     font-size: clamp(3rem, 8vw, 7rem);
     font-weight: 900;

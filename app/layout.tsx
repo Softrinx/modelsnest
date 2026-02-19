@@ -1,18 +1,27 @@
 import type { Metadata } from 'next'
-import { GeistSans } from 'geist/font/sans'
+import { Space_Grotesk } from 'next/font/google'
 import { GeistMono } from 'geist/font/mono'
 import { StructuredData, OrganizationStructuredData } from '@/components/structured-data'
+import { ThemeProvider } from '@/contexts/themeContext'
 import './globals.css'
 
 // Force dynamic rendering to prevent prerendering issues with Client Components
 export const dynamic = 'force-dynamic'
 
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-space-grotesk',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: {
     default: 'Outsoor - Enterprise AI APIs Built for Scale',
-    template: '%s | Outsoor'
+    template: '%s | Outsoor',
   },
-  description: 'Production-ready AI infrastructure with <200ms latency, 99.99% uptime, and transparent pricing. Built by developers, for developers. Ship AI features in minutes, not months.',
+  description:
+    'Production ready AI infrastructure with <200ms latency, 99.99% uptime, and transparent pricing. Built by developers, for developers. Ship AI features in minutes, not months.',
   keywords: [
     'AI APIs',
     'Enterprise AI',
@@ -23,7 +32,7 @@ export const metadata: Metadata = {
     'AI Services',
     'Production AI',
     'Low Latency AI',
-    'Scalable AI'
+    'Scalable AI',
   ],
   authors: [{ name: 'Outsoor Team' }],
   creator: 'Outsoor',
@@ -43,7 +52,8 @@ export const metadata: Metadata = {
     url: 'https://outsoor.com',
     siteName: 'Outsoor',
     title: 'Outsoor - Enterprise AI APIs Built for Scale',
-    description: 'Production-ready AI infrastructure with <200ms latency, 99.99% uptime, and transparent pricing. Built by developers, for developers.',
+    description:
+      'Production-ready AI infrastructure with <200ms latency, 99.99% uptime, and transparent pricing. Built by developers, for developers.',
     images: [
       {
         url: '/og-image.png',
@@ -56,7 +66,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Outsoor - Enterprise AI APIs Built for Scale',
-    description: 'Production-ready AI infrastructure with <200ms latency, 99.99% uptime, and transparent pricing.',
+    description:
+      'Production-ready AI infrastructure with <200ms latency, 99.99% uptime, and transparent pricing.',
     images: ['/og-image.png'],
     creator: '@outsoor',
     site: '@outsoor',
@@ -87,15 +98,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      data-theme="dark"
+      className={`${spaceGrotesk.variable} ${GeistMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
-        <style>{`
-html {
-  font-family: ${GeistSans.style.fontFamily};
-  --font-sans: ${GeistSans.variable};
-  --font-mono: ${GeistMono.variable};
-}
-        `}</style>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -107,7 +116,11 @@ html {
         <StructuredData />
         <OrganizationStructuredData />
       </head>
-      <body>{children}</body>
+      <body className="font-sans antialiased">
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   )
 }
