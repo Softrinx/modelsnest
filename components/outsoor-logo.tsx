@@ -1,6 +1,8 @@
 "use client"
 
+import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { useTheme } from "@/contexts/themeContext"
 
 interface OutsoorLogoProps {
   className?: string
@@ -8,63 +10,40 @@ interface OutsoorLogoProps {
   variant?: "default" | "sidebar" | "header"
 }
 
-export function OutsoorLogo({ className, size = "md", variant = "default" }: OutsoorLogoProps) {
-  const sizeClasses = {
-    sm: "text-lg",
-    md: "text-xl",
-    lg: "text-2xl",
-    xl: "text-3xl"
-  }
+const sizeMap = {
+  sm: { w: 80,  h: 26 },
+  md: { w: 110, h: 36 },
+  lg: { w: 155, h: 48 },
+  xl: { w: 180, h: 56 },
+}
 
-  const variantClasses = {
-    default: "font-bold",
-    sidebar: "font-semibold",
-    header: "font-bold"
-  }
+export function OutsoorLogo({ className, size = "md" }: OutsoorLogoProps) {
+  const { isDark } = useTheme()
+  const s = sizeMap[size]
 
   return (
-    <div className={cn(
-      "flex items-center gap-2",
-      className
-    )}>
-      {/* Logo Icon */}
-      <div className={cn(
-        "flex items-center justify-center rounded-lg bg-gradient-to-br from-[#6d28d9] to-[#8b5cf6]",
-        size === "sm" ? "w-6 h-6" : 
-        size === "md" ? "w-8 h-8" : 
-        size === "lg" ? "w-10 h-10" : "w-12 h-12"
-      )}>
-        <span className={cn(
-          "text-white font-bold",
-          size === "sm" ? "text-xs" : 
-          size === "md" ? "text-sm" : 
-          size === "lg" ? "text-base" : "text-lg"
-        )}>
-          O
-        </span>
-      </div>
-
-      {/* Logo Text */}
-      <div className={cn(
-        "font-mono tracking-wide",
-        sizeClasses[size],
-        variantClasses[variant]
-      )}>
-        <span className="text-white drop-shadow-sm">OUT</span>
-        <span className="text-[#8C5CF7] drop-shadow-sm">SOOR</span>
-      </div>
-    </div>
+    <Image
+      src={isDark ? "/logodark.png" : "/logolight.png"}
+      alt="Outsoor"
+      width={s.w}
+      height={s.h}
+      className={cn("object-contain", className)}
+      priority
+    />
   )
 }
 
-// Compact version for collapsed sidebar
 export function OutsoorLogoCompact({ className }: { className?: string }) {
+  const { isDark } = useTheme()
+
   return (
-    <div className={cn(
-      "flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#6d28d9] to-[#8b5cf6]",
-      className
-    )}>
-      <span className="text-white font-bold text-sm">O</span>
-    </div>
+    <Image
+      src={isDark ? "/logodark.png" : "/logolight.png"}
+      alt="Outsoor"
+      width={28}
+      height={28}
+      className={cn("object-contain", className)}
+      priority
+    />
   )
 }
