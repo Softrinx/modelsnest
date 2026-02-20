@@ -129,7 +129,7 @@ jobs:
     name: Deploy Staging
     runs-on: ubuntu-latest
     needs: [frontend_build, backend_build]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: false # Temporarily disabled: missing Vercel token/org/project secrets
     environment:
       name: staging
       url: ${{ vars.STAGING_APP_URL || '' }}
