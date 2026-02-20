@@ -1,17 +1,16 @@
 import type { Metadata } from 'next'
-import { Space_Grotesk } from 'next/font/google'
+import { DM_Sans } from 'next/font/google'
 import { GeistMono } from 'geist/font/mono'
 import { StructuredData, OrganizationStructuredData } from '@/components/structured-data'
 import { ThemeProvider } from '@/contexts/themeContext'
 import './globals.css'
 
-// Force dynamic rendering to prevent prerendering issues with Client Components
 export const dynamic = 'force-dynamic'
 
-const spaceGrotesk = Space_Grotesk({
+const dmSans = DM_Sans({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-space-grotesk',
+  variable: '--font-sans',
   display: 'swap',
 })
 
@@ -101,7 +100,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="dark"
-      className={`${spaceGrotesk.variable} ${GeistMono.variable}`}
+      className={`${dmSans.variable} ${GeistMono.variable}`}
       suppressHydrationWarning
     >
       <head>
