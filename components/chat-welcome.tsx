@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Sparkles, Send, Zap, Brain, Code, MessageSquare, Lightbulb, Target, TrendingUp, Users, Shield, Globe, Rocket, Star, Heart, ArrowRight, Search, Flame, FileText, Cpu, Paperclip } from "lucide-react"
 import { OutsoorLogo } from "@/components/outsoor-logo"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ChatWelcomeProps {
-  user: { name: string; email: string }
+  user: DashboardUser
   onSuggestion: (suggestion: string) => void
   onSendMessage: (message: string) => void
   disabled?: boolean
@@ -90,7 +91,7 @@ export function ChatWelcome({ user, onSuggestion, onSendMessage, disabled = fals
         <div className="space-y-2 sm:space-y-3">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold">
             <span className="bg-gradient-to-r from-[#5567F7] to-[#8C5CF7] bg-clip-text text-transparent">
-              Hey {user.name}!
+              Hey {user.name ?? "there"}!
             </span>
                             <span className="text-white ml-2 sm:ml-3">How can I help?</span>
           </h1>

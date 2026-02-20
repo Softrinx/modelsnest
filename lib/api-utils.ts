@@ -1,7 +1,7 @@
 import crypto from "crypto"
 
 // Generate a user ID similar to Apify's format
-export function generateUserId(email: string, id: number): string {
+export function generateUserId(email: string, id: string | number): string {
   const hash = crypto.createHash("md5").update(`${email}-${id}`).digest("hex")
   return hash.substring(0, 16).toUpperCase()
 }

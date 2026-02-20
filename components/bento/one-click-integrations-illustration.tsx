@@ -5,7 +5,7 @@ interface OneClickIntegrationsIllustrationProps {
 }
 
 const OneClickIntegrationsIllustration: React.FC<OneClickIntegrationsIllustrationProps> = ({ className = "" }) => {
-  const themeVars = {
+  const themeVars: Record<string, string> = {
     "--oci-primary-color": "hsl(var(--primary))",
     "--oci-background-color": "hsl(var(--background))",
     "--oci-foreground-color": "hsl(var(--foreground))",
@@ -14,7 +14,7 @@ const OneClickIntegrationsIllustration: React.FC<OneClickIntegrationsIllustratio
     "--oci-shadow-color": "rgba(0, 0, 0, 0.12)",
     "--oci-gradient-light-gray-start": "hsl(var(--foreground) / 0.2)",
     "--oci-gradient-light-gray-end": "transparent",
-  } as React.CSSProperties
+  }
 
   // Helper component for rendering each logo box
   const LogoBox: React.FC<{
@@ -200,7 +200,7 @@ const OneClickIntegrationsIllustration: React.FC<OneClickIntegrationsIllustratio
     <div
       className={`w-full h-full relative ${className}`}
       style={{
-        ...themeVars,
+        ...(themeVars as React.CSSProperties),
       }}
       role="img"
       aria-label="One-click integrations illustration showing a grid of connected squares"

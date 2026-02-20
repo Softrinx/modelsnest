@@ -23,9 +23,10 @@ import {
   Plus
 } from "lucide-react"
 import { OutsoorLogo, OutsoorLogoCompact } from "@/components/outsoor-logo"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface DashboardSidebarProps {
-  user: { name: string; email: string }
+  user: DashboardUser
   onSidebarToggle?: (isCollapsed: boolean) => void
 }
 

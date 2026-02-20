@@ -20,9 +20,10 @@ import {
   BookOpen
 } from "lucide-react"
 import Link from "next/link"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ModelsMainProps {
-  user: { name: string; email: string }
+  user: DashboardUser
 }
 
 interface Model {

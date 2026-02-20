@@ -1,9 +1,10 @@
 "use client"
 
 import { ChatInterface } from "@/components/chat-interface"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ChatMainProps {
-  user: { name: string; email: string }
+  user: DashboardUser
 }
 
 export function ChatMain({ user }: ChatMainProps) {

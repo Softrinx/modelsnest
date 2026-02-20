@@ -10,9 +10,10 @@ import type { ChatMessage } from "@/lib/chat-api"
 import { Button } from "@/components/ui/button"
 import { Settings, User, Plus } from "lucide-react"
 import Link from "next/link"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface DashboardChatInterfaceProps {
-  user: { name: string; email: string }
+  user: DashboardUser
   sidebarCollapsed?: boolean
 }
 
@@ -123,7 +124,7 @@ export function DashboardChatInterface({ user, sidebarCollapsed = false }: Dashb
         if (response.success) {
           const assistantMessage: ChatMessage = {
             role: "assistant",
-            content: response.message,
+            content: response.message ?? "No response generated",
           }
           setMessages([...updatedMessages, assistantMessage])
         } else {

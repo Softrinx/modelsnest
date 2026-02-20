@@ -87,9 +87,8 @@ export async function GET(request: NextRequest) {
     // If no transaction found, check PayPal directly
     try {
       const paypalClient = createPayPalClient()
-      const ordersController = new OrdersController(paypalClient)
-      
-      const order = await ordersController.getOrder(orderId, {})
+      const request = new paypal.orders.OrdersGetRequest(orderId)
+      const order = await paypalClient.execute(request)
       
       return NextResponse.json({
         success: true,

@@ -1,0 +1,135 @@
+@import url('https://fonts.googleapis.com/css2?family=Asap:ital,wght@0,100..900;1,100..900&family=Bubbler+One&family=Dosis:wght@200..800&family=Funnel+Display:wght@300..800&family=Geist+Mono:wght@100..900&family=Outfit:wght@100..900&family=Space+Grotesk:wght@300..700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 262 91% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 234 91% 65%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 11%;
+    --muted-foreground: 0 0% 63%;
+    --accent: 280 94% 67%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 262 91% 65%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 262 91% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 262 91% 65%;
+
+    --color-primary:      #8C5CF7;
+    --color-secondary:    #5567F7;
+    --color-accent:       #C85CFA;
+    --color-success:      #4ADE80;
+    --color-danger:       #EF4444;
+    --color-warning:      #FBBF24;
+
+    --color-bg:           #0D0D0F;
+    --color-surface-1:    #121214;
+    --color-surface-2:    #1A1B1F;
+    --color-surface-3:    #22232A;
+    --color-border:       #2D2D32;
+    --color-border-hover: #3D3D42;
+    --color-text:         #FFFFFF;
+    --color-text-muted:   #A0A0A8;
+
+    --font-sans: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+    --font-mono: var(--font-geist-mono), 'Courier New', monospace;
+
+    --radius-xl:  1.5rem;
+    --radius-2xl: 2rem;
+  }
+
+  .dark {
+    --color-bg:           #FAFAFA;
+    --color-surface-1:    #FFFFFF;
+    --color-surface-2:    #F4F4F6;
+    --color-surface-3:    #EBEBEF;
+    --color-border:       #E4E4E8;
+    --color-border-hover: #C8C8D0;
+    --color-text:         #0D0D0F;
+    --color-text-muted:   #6B6B75;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family:'Funnel Display', 'Asap', 'Dosis', 'Outfit', 'Space Grotesk', var(--font-sans) !important;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code, pre, kbd {
+    font-family: var(--font-mono);
+  }
+
+  ::selection {
+    background-color: rgba(140, 92, 247, 0.25);
+    color: #ffffff;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-display {
+    font-size: clamp(3rem, 8vw, 7rem);
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+}
+
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-surface-1); }
+::-webkit-scrollbar-thumb { background: var(--color-border-hover); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+@keyframes marquee-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@keyframes marquee-right {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+
+.animate-marquee-left {
+  display: flex;
+  width: max-content;
+  animation: marquee-left 22s linear infinite;
+}
+
+.animate-marquee-right {
+  display: flex;
+  width: max-content;
+  animation: marquee-right 26s linear infinite;
+}

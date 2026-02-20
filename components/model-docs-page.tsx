@@ -17,9 +17,10 @@ import {
   Download
 } from "lucide-react"
 import Link from "next/link"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ModelDocsPageProps {
-  user: { name: string; email: string }
+  user: DashboardUser
   modelSlug: string
 }
 

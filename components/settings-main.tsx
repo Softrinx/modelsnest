@@ -22,6 +22,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import Link from "next/link"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface SettingsMainProps {
   user: { id: string; name?: string; email?: string; user_metadata?: Record<string, any> }

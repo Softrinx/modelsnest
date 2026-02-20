@@ -1,0 +1,127 @@
+name: Production Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to deploy (branch, tag, or SHA)"
+        required: false
+        default: "main"
+        type: string
+      run_migrations:
+        description: "Run database migrations before deploy"
+        required: true
+        default: false
+        type: boolean
+      confirm:
+        description: "Type 'deploy-production' to confirm"
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+  NEXT_TELEMETRY_DISABLED: "1"
+  DATABASE_URL: ${{ secrets.DATABASE_URL || '' }}
+  DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED || '' }}
+  NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || '' }}
+  NOVITA_API_KEY: ${{ secrets.NOVITA_API_KEY || '' }}
+  PAYPAL_TEST: ${{ secrets.PAYPAL_TEST || 'false' }}
+  PAYPAL_CLIENT_ID_SANDBOX: ${{ secrets.PAYPAL_CLIENT_ID_SANDBOX || '' }}
+  PAYPAL_CLIENT_SECRET_SANDBOX: ${{ secrets.PAYPAL_CLIENT_SECRET_SANDBOX || '' }}
+  PAYPAL_CLIENT_ID_LIVE: ${{ secrets.PAYPAL_CLIENT_ID_LIVE || '' }}
+  PAYPAL_CLIENT_SECRET_LIVE: ${{ secrets.PAYPAL_CLIENT_SECRET_LIVE || '' }}
+  PAYPAL_WEBHOOK_ID_SANDBOX: ${{ secrets.PAYPAL_WEBHOOK_ID_SANDBOX || '' }}
+  PAYPAL_WEBHOOK_ID_LIVE: ${{ secrets.PAYPAL_WEBHOOK_ID_LIVE || '' }}
+  COINBASE_COMMERCE_API_KEY: ${{ secrets.COINBASE_COMMERCE_API_KEY || '' }}
+  COINBASE_COMMERCE_WEBHOOK_SECRET: ${{ secrets.COINBASE_COMMERCE_WEBHOOK_SECRET || '' }}
+  NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || '' }}
+  APP_URL: ${{ secrets.APP_URL || '' }}
+
+jobs:
+  deploy:
+    name: Deploy Production
+    if: ${{ github.event.inputs.confirm == 'deploy-production' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_APP_URL || '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate required production secrets
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          required_vars=(
+            DATABASE_URL
+            NEXTAUTH_SECRET
+            NOVITA_API_KEY
+            NEXT_PUBLIC_APP_URL
+            VERCEL_TOKEN
+            VERCEL_ORG_ID
+            VERCEL_PROJECT_ID
+          )
+
+          for name in "${required_vars[@]}"; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required production secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Build app
+        run: npm run build
+
+      - name: Run migrations (optional)
+        if: ${{ github.event.inputs.run_migrations == 'true' }}
+        run: npm run migrate
+
+      - name: Pull Vercel production environment
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: npx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build for Vercel production
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: npx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel production
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  invalid_confirmation:
+    name: Invalid Confirmation
+    if: ${{ github.event.inputs.confirm != 'deploy-production' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail on missing confirmation
+        run: |
+          echo "Confirmation failed. Set 'confirm' to deploy-production."
+          exit 1

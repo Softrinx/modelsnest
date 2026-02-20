@@ -1,6 +1,8 @@
 "use client"
 
 import { motion } from "framer-motion"
+import type { Variants } from "framer-motion"
+import type { CSSProperties } from "react"
 import {
   MessageSquare,
   ImageIcon,
@@ -26,7 +28,7 @@ import {
 } from "lucide-react"
 
 // Simple Static Icon Variants - No Wobbling
-const iconVariants = {
+const iconVariants: Variants = {
   idle: {
     scale: 1,
     rotate: 0,
@@ -36,142 +38,145 @@ const iconVariants = {
     scale: 1.05,
     opacity: 1,
     transition: {
-      type: "tween",
       duration: 0.2,
     },
   },
   tap: {
     scale: 0.98,
     transition: {
-      type: "tween",
       duration: 0.1,
     },
   },
 }
 
+interface AnimatedIconProps {
+  className?: string
+  style?: CSSProperties
+}
+
 // Static Icon Components - No Animation
-export const AnimatedMessageSquare = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedMessageSquare = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <MessageSquare className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedImageIcon = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedImageIcon = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <ImageIcon className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedMic = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedMic = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Mic className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedVolume2 = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedVolume2 = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Volume2 className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedBrain = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedBrain = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Brain className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedLayers = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedLayers = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Layers className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedZap = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedZap = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Zap className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedActivity = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedActivity = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Activity className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedTerminal = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedTerminal = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Terminal className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedGlobe = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedGlobe = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Globe className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedSparkles = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedSparkles = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Sparkles className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedRocket = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedRocket = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Rocket className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedCode = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedCode = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Code className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedArrowRight = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedArrowRight = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <ArrowRight className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedTrendingUp = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedTrendingUp = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <TrendingUp className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedShield = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedShield = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Shield className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedClock = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedClock = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Clock className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedPlay = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedPlay = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Play className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedBarChart3 = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedBarChart3 = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <BarChart3 className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedKey = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedKey = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Key className="w-full h-full" />
   </motion.div>
 )
 
-export const AnimatedPuzzle = ({ className = "" }: { className?: string }) => (
-  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className}>
+export const AnimatedPuzzle = ({ className = "", style }: AnimatedIconProps) => (
+  <motion.div variants={iconVariants} initial="idle" whileHover="hover" whileTap="tap" className={className} style={style}>
     <Puzzle className="w-full h-full" />
   </motion.div>
 )

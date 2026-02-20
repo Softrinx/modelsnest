@@ -11,9 +11,10 @@ import { UserIdSection } from "@/components/user-id-section"
 import { IntegrationsSection } from "@/components/integrations-section"
 import { ExternalLink } from "lucide-react"
 import Link from "next/link"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ApiTokensMainProps {
-  user: { id: number; name: string; email: string }
+  user: DashboardUser
 }
 
 export function ApiTokensMain({ user }: ApiTokensMainProps) {

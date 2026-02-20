@@ -20,9 +20,10 @@ import {
   Play
 } from "lucide-react"
 import Link from "next/link"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ModelsDocsIndexProps {
-  user: { name: string; email: string }
+  user: DashboardUser
 }
 
 interface ModelDoc {

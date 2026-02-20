@@ -9,13 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Download, CheckCircle, AlertCircle, XCircle } from "lucide-react"
 import { BillingOverview } from "@/components/billing-overview"
 import { TopUpDialog } from "@/components/top-up-dialog"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface BillingMainProps {
-  user: {
-    id: number
-    email: string
-    name: string
-  }
+  user: DashboardUser
 }
 
 export function BillingMain({ user }: BillingMainProps) {

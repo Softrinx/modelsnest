@@ -10,9 +10,10 @@ import { useChatStream } from "@/hooks/use-chat-stream"
 import { Button } from "@/components/ui/button"
 import { Trash2, Download, Zap, MessageSquare } from "lucide-react"
 import type { ChatMessage } from "@/lib/chat-api"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ChatInterfaceProps {
-  user: { name: string; email: string }
+  user: DashboardUser
 }
 
 export function ChatInterface({ user }: ChatInterfaceProps) {
@@ -82,7 +83,7 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
         if (response.success) {
           const assistantMessage: ChatMessage = {
             role: "assistant",
-            content: response.message,
+            content: response.message ?? "No response generated",
           }
           setMessages([...updatedMessages, assistantMessage])
         } else {

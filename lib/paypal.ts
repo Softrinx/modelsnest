@@ -37,8 +37,11 @@ export function createPayPalClient() {
 
     return new paypal.Client({
       environment: environment,
-      clientId: credentials.clientId,
-      clientSecret: credentials.clientSecret
+      timeout: 0,
+      clientCredentialsAuthCredentials: {
+        oAuthClientId: credentials.clientId,
+        oAuthClientSecret: credentials.clientSecret,
+      },
     })
   } catch (error) {
     console.error('Error creating PayPal client:', error)

@@ -43,7 +43,8 @@ async function runMigrations() {
       '002_create_api_tokens_table.sql',
       '003_create_password_reset_table.sql',
       '004_create_billing_tables.sql',
-      '005_add_role_column.sql'
+      '005_add_role_column.sql',
+      '006_create_app_tables_for_supabase.sql'
     ];
 
     for (const migrationFile of migrationFiles) {

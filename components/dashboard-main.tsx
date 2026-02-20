@@ -2,9 +2,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Search, Star, Users, ExternalLink } from "lucide-react"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface DashboardMainProps {
-  user: { name: string; email: string }
+  user: DashboardUser
 }
 
 export function DashboardMain({ user }: DashboardMainProps) {

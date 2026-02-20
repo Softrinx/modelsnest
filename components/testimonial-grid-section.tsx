@@ -1,5 +1,5 @@
 import Image from "next/image"
-import Button from "./button" // Import Button component
+import { Button } from "@/components/ui/button"
 
 const testimonials = [
   {
@@ -60,7 +60,9 @@ const testimonials = [
   },
 ]
 
-const TestimonialCard = ({ quote, name, company, avatar, type }) => {
+type Testimonial = (typeof testimonials)[number]
+
+const TestimonialCard = ({ quote, name, company, avatar, type }: Testimonial) => {
   const isLargeCard = type.startsWith("large")
   const avatarSize = isLargeCard ? 48 : 36
   const avatarBorderRadius = isLargeCard ? "rounded-[41px]" : "rounded-[30.75px]"

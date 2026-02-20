@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Check, X, Zap, Globe, Shield } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 export function CompetitiveEdge() {
   const competitors = [
@@ -49,7 +50,9 @@ export function CompetitiveEdge() {
     },
   ]
 
-  const comparisonRows = [
+  type FeatureKey = keyof (typeof competitors)[number]["features"]
+
+  const comparisonRows: Array<{ label: string; key: FeatureKey; icon: LucideIcon }> = [
     { label: "Average Latency", key: "latency", icon: Zap },
     { label: "Uptime SLA", key: "uptime", icon: Shield },
     { label: "Starting Price", key: "pricing", icon: Globe },

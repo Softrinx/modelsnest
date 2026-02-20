@@ -227,8 +227,9 @@ Migrations are in `scripts/` and run in numbered order:
 | `001` | `users`, `sessions` | Core auth — user accounts and login sessions |
 | `002` | `api_tokens` | User-generated API keys with scopes and expiry |
 | `003` | `password_reset_tokens` | Time-limited tokens for password reset emails |
-| `004` | `transactions`, `balances` | Billing ledger — top-ups, usage charges, balance tracking |
+| `004` | `credit_transactions`, `user_credits`, `usage_logs` | Billing ledger — top-ups, usage charges, balance tracking |
 | `005` | *(alter users)* | Adds `role` column for admin vs user access control |
+| `006` | *(idempotent fix/align)* | Ensures all non-user app tables/columns/indexes are present and UUID-compatible |
 
 ---
 

@@ -2,7 +2,6 @@ import React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Clock, Users, BookOpen, Play, Code, Database, Zap, Shield, Globe, AlertTriangle, Gauge, Star } from "lucide-react"
 
 // Force dynamic rendering to prevent prerendering issues with Client Components

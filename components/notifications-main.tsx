@@ -17,9 +17,10 @@ import {
   Volume2,
   VolumeX
 } from "lucide-react"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface NotificationsMainProps {
-  user: { name: string; email: string }
+  user: DashboardUser
 }
 
 export function NotificationsMain({ user }: NotificationsMainProps) {

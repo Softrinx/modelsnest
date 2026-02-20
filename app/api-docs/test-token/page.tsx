@@ -214,7 +214,7 @@ export default function TestTokenPage() {
                 ) : (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                     <div className="space-y-2">
-                      <p className="text-sm text-red-700 font-medium">{response.error}</p>
+                      <p className="text-sm text-red-700 font-medium">{"error" in response ? response.error : "Unknown error"}</p>
                       <p className="text-xs text-red-600">{response.message}</p>
                       <Badge variant="outline" className="text-xs">
                         Error Code: {response.code}
@@ -223,7 +223,7 @@ export default function TestTokenPage() {
                   </div>
                 )}
 
-                {response.timestamp && (
+                {"timestamp" in response && response.timestamp && (
                   <div className="text-xs text-muted-foreground text-center pt-2 border-t">
                     Verified at: {new Date(response.timestamp).toLocaleString()}
                   </div>

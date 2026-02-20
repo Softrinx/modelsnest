@@ -15,9 +15,10 @@ import {
   AlertTriangle,
   UserCheck
 } from "lucide-react"
+import type { DashboardUser } from "@/types/dashboard-user"
 
 interface SecurityMainProps {
-  user: { name: string; email: string }
+  user: DashboardUser
 }
 
 export function SecurityMain({ user }: SecurityMainProps) {
