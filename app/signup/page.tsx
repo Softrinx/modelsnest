@@ -1,185 +1,237 @@
-import { SignupForm } from "@/components/signup-form"
-import Link from "next/link"
-import { Brain, Zap, Shield, Globe, Code, Sparkles } from "lucide-react"
-import type { Metadata } from 'next'
+"use client"
 
-// Force dynamic rendering to prevent prerendering issues with Client Components
+import { SignupForm } from "@/components/signup-form"
+import { OutsoorLogo } from "@/components/outsoor-logo"
+import Link from "next/link"
+import { Brain, Zap, Shield, Globe, Code, Sparkles, Sun, Moon, Check } from "lucide-react"
+import { useTheme } from "@/contexts/themeContext"
+
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Sign Up',
-  description: 'Create your Outsoor account and start building with enterprise AI APIs. Get started with free tier access.',
-  robots: {
-    index: false,
-    follow: false,
-  },
-}
-
 export default function SignupPage() {
+  const { isDark, setMode } = useTheme()
+
+  const bg     = isDark ? "#0D0D0F" : "#f8f8f6"
+  const card   = isDark ? "#1A1B1F" : "#ffffff"
+  const border = isDark ? "#202126" : "#e2e2e0"
+  const text   = isDark ? "#ffffff" : "#0a0a0b"
+  const muted  = isDark ? "#A0A0A8" : "#52525b"
+  const subtle = isDark ? "#5A5A64" : "#a1a1aa"
+
   const apiModels = [
-    {
-      name: "GPT-4 Turbo",
-      description: "Latest OpenAI model with enhanced reasoning",
-      icon: Brain,
-      color: "text-[#5567F7]"
-    },
-    {
-      name: "Claude 3.5 Sonnet",
-      description: "Anthropic's most capable model",
-      icon: Sparkles,
-      color: "text-[#C85CFA]"
-    },
-    {
-      name: "Gemini Pro",
-      description: "Google's advanced AI model",
-      icon: Zap,
-      color: "text-[#FACC15]"
-    },
-    {
-      name: "Llama 3",
-      description: "Meta's open-source powerhouse",
-      icon: Code,
-      color: "text-[#4ADE80]"
-    }
+    { name: "GPT-4 Turbo",       description: "Enhanced reasoning & vision",      icon: Brain,    color: "#6366f1" },
+    { name: "Claude 3.5 Sonnet", description: "Anthropic's most capable model",   icon: Sparkles, color: "#8b5cf6" },
+    { name: "Gemini Pro",        description: "Google's advanced AI model",        icon: Zap,      color: "#f59e0b" },
+    { name: "Llama 3.1 405B",   description: "Meta's open-source powerhouse",     icon: Code,     color: "#10b981" },
+    { name: "DALL-E 3",          description: "Text-to-image generation",          icon: Globe,    color: "#ec4899" },
+    { name: "Whisper v3",        description: "Audio transcription & translation", icon: Shield,   color: "#06b6d4" },
   ]
 
-  const features = [
-    {
-      title: "50+ AI Models",
-      description: "Access to the latest AI models from leading providers",
-      icon: Brain,
-      color: "text-[#8C5CF7]"
-    },
-    {
-      title: "Enterprise Security",
-      description: "SOC 2 compliant with enterprise-grade security",
-      icon: Shield,
-      color: "text-[#4ADE80]"
-    },
-    {
-      title: "Global Infrastructure",
-      description: "99.99% uptime with <200ms latency worldwide",
-      icon: Globe,
-      color: "text-[#5567F7]"
-    }
+  const perks = [
+    "10,000 free API calls to start",
+    "No credit card required",
+    "Access all 50+ models instantly",
+    "Cancel or upgrade anytime",
   ]
+
+  const testimonial = {
+    quote: "We switched from managing 6 separate AI vendor contracts to just Outsoor. The ROI was immediate.",
+    author: "Marcus Reid",
+    role: "Head of Engineering at Loopflow",
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0D0D0F] via-[#121214] to-[#1A1B1F] relative overflow-hidden">
-      {/* Background effects with theme colors */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0D0D0F] via-[#121214] to-[#1A1B1F]"></div>
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#8C5CF7]/10 via-[#C85CFA]/5 to-[#5567F7]/10"></div>
-      </div>
-      
-      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div className="w-full max-w-7xl mx-auto">
-          {/* Mobile: Stack vertically, Desktop: Side by side */}
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-            
-            {/* Left Column - API Models & Features (Hidden on mobile) */}
-            <div className="hidden lg:block space-y-8">
-              {/* Header */}
-              <div className="space-y-4">
-                <h1 className="text-5xl font-bold leading-tight">
-                  <span className="bg-gradient-to-r from-[#8C5CF7] via-[#C85CFA] to-[#5567F7] bg-clip-text text-transparent">
-                    Build the Future with AI
-                  </span>
-                </h1>
-                <p className="text-xl text-[#E0E0E0] leading-relaxed">
-                  Join thousands of developers using the most advanced AI models through our unified API platform.
+    <div className="min-h-screen relative overflow-hidden" style={{ background: bg }}>
+      {/* Light mode input override */}
+      {!isDark && (
+        <style>{`
+          input, textarea, select {
+            background-color: #ffffff !important;
+            color: #0a0a0b !important;
+            border-color: #e2e2e0 !important;
+          }
+          input::placeholder, textarea::placeholder {
+            color: #a1a1aa !important;
+          }
+          label, [class*="label"] {
+            color: #0a0a0b !important;
+          }
+          [class*="form"] p, [class*="form"] span {
+            color: #52525b !important;
+          }
+        `}</style>
+      )}
+
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: isDark
+          ? "radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(139,92,246,0.06) 0%, transparent 50%)"
+          : "radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.04) 0%, transparent 60%)",
+      }} />
+
+      {/* ── MOBILE ── */}
+      <div className="lg:hidden relative z-10 min-h-screen flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${border}` }}>
+          <Link href="/"><OutsoorLogo className="h-8 w-auto" /></Link>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMode(isDark ? "light" : "dark")}
+              className="w-9 h-9 flex items-center justify-center"
+              style={{ border: `1px solid ${border}`, background: card }}>
+              {isDark ? <Sun className="w-4 h-4" style={{ color: muted }} /> : <Moon className="w-4 h-4" style={{ color: muted }} />}
+            </button>
+            <Link href="/login" className="text-xs font-semibold px-3 py-2"
+              style={{ border: `1px solid var(--color-primary)`, color: "var(--color-primary)" }}>
+              Sign in
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-px" style={{ background: border, borderBottom: `1px solid ${border}` }}>
+          {[
+            { n: "50+",  l: "AI Models",   color: "var(--color-primary)" },
+            { n: "10K",  l: "Free calls",  color: "#10b981" },
+            { n: "Free", l: "To start",    color: "#f59e0b" },
+          ].map(s => (
+            <div key={s.l} className="flex flex-col items-center py-4" style={{ background: bg }}>
+              <span className="font-black font-mono text-xl" style={{ color: s.color, letterSpacing: "-0.04em" }}>{s.n}</span>
+              <span className="text-xs mt-0.5" style={{ color: muted }}>{s.l}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex-1 flex flex-col justify-center px-5 py-8">
+          <div className="w-full max-w-sm mx-auto">
+            <div className="p-7" style={{ background: card, border: `1px solid ${border}` }}>
+              <h1 className="text-2xl font-black mb-1" style={{ letterSpacing: "-0.04em", color: text }}>Create account</h1>
+              <p className="text-sm mb-7" style={{ color: muted }}>10,000 free calls. No credit card needed.</p>
+              <SignupForm />
+              <div className="mt-5 text-center">
+                <p className="text-sm" style={{ color: muted }}>
+                  Already have an account?{" "}
+                  <Link href="/login" className="font-medium hover:underline underline-offset-4"
+                    style={{ color: "var(--color-primary)" }}>Sign in</Link>
                 </p>
               </div>
-
-              {/* API Models Grid */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-[#FFFFFF]">Popular AI Models</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {apiModels.map((model, index) => (
-                    <div key={index} className="bg-[#1A1B1F] border border-[#202126] rounded-xl p-4 hover:border-[#8C5CF7]/30 transition-all duration-300 hover:shadow-lg hover:shadow-[#8C5CF7]/10">
-                      <div className="flex items-center gap-3">
-                        <model.icon className={`w-5 h-5 ${model.color}`} />
-                        <div>
-                          <h4 className="font-semibold text-[#FFFFFF] text-sm">{model.name}</h4>
-                          <p className="text-xs text-[#A0A0A8]">{model.description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Features */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-[#FFFFFF]">Why Choose Outsoor?</h3>
-                <div className="space-y-3">
-                  {features.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg bg-[#1A1B1F] border border-[#202126]`}>
-                        <feature.icon className={`w-5 h-5 ${feature.color}`} />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-[#FFFFFF] text-sm">{feature.title}</h4>
-                        <p className="text-xs text-[#A0A0A8]">{feature.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-4 pt-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-[#8C5CF7]">50+</div>
-                  <div className="text-xs text-[#A0A0A8]">AI Models</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-[#4ADE80]">&lt;200ms</div>
-                  <div className="text-xs text-[#A0A0A8]">Latency</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-[#22C55E]">99.99%</div>
-                  <div className="text-xs text-[#A0A0A8]">Uptime</div>
-                </div>
+              <div className="mt-3 text-center">
+                <Link href="/" className="text-xs hover:underline underline-offset-4" style={{ color: subtle }}>← Back to home</Link>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Right Column - Signup Form */}
-            <div className="w-full max-w-md mx-auto lg:mx-0">
-              <div className="bg-[#1A1B1F] border border-[#202126] rounded-2xl p-8 shadow-xl shadow-black/20">
-                {/* Mobile Header (shown only on mobile) */}
-                <div className="lg:hidden text-center mb-6">
-                  <h1 className="text-3xl font-bold mb-2">
-                    <span className="bg-gradient-to-r from-[#8C5CF7] via-[#C85CFA] to-[#5567F7] bg-clip-text text-transparent">
-                      Create Account
-                    </span>
-                  </h1>
-                  <p className="text-[#A0A0A8]">Join thousands of developers</p>
+        <div style={{ borderTop: `1px solid ${border}` }}>
+          <div className="px-5 py-5 flex flex-col gap-2.5">
+            {perks.map(p => (
+              <div key={p} className="flex items-center gap-3">
+                <div className="w-4 h-4 flex items-center justify-center flex-shrink-0"
+                  style={{ background: "color-mix(in srgb, var(--color-primary) 15%, transparent)", border: "1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)" }}>
+                  <Check className="w-2.5 h-2.5" style={{ color: "var(--color-primary)" }} />
                 </div>
+                <span className="text-xs" style={{ color: muted }}>{p}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
-                <SignupForm />
+      {/* ── DESKTOP ── */}
+      <div className="hidden lg:block relative z-10 min-h-screen">
+        <div className="absolute top-5 right-6 z-20">
+          <button onClick={() => setMode(isDark ? "light" : "dark")}
+            className="w-9 h-9 flex items-center justify-center"
+            style={{ border: `1px solid ${border}`, background: card }}>
+            {isDark ? <Sun className="w-4 h-4" style={{ color: muted }} /> : <Moon className="w-4 h-4" style={{ color: muted }} />}
+          </button>
+        </div>
 
-                <div className="mt-8 text-center">
-                  <p className="text-sm text-[#A0A0A8]">
-                    Already have an account?{" "}
-                    <Link
-                      href="/login"
-                      className="text-[#8C5CF7] hover:text-[#C85CFA] font-medium transition-colors underline-offset-4 hover:underline"
-                    >
-                      Sign in
-                    </Link>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="w-full max-w-7xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+
+              {/* LEFT */}
+              <div className="space-y-8">
+                <Link href="/"><OutsoorLogo className="h-10 w-auto" /></Link>
+
+                <div className="space-y-4">
+                  <h1 className="text-5xl font-black leading-tight" style={{ letterSpacing: "-0.04em", color: text }}>
+                    Build the future.<br />
+                    <span style={{ color: "var(--color-primary)" }}>Start for free.</span>
+                  </h1>
+                  <p className="text-base leading-relaxed max-w-sm" style={{ color: muted }}>
+                    Join thousands of developers using 50+ AI models through one unified API. No vendor lock-in, transparent pricing.
                   </p>
                 </div>
 
-                <div className="mt-4 text-center">
-                  <Link
-                    href="/"
-                    className="text-xs text-[#5A5A64] hover:text-[#A0A0A8] transition-colors underline-offset-4 hover:underline"
-                  >
-                    ← Back to home
-                  </Link>
+                {/* Perks */}
+                <div className="flex flex-col gap-2.5">
+                  {perks.map(p => (
+                    <div key={p} className="flex items-center gap-3">
+                      <div className="w-5 h-5 flex items-center justify-center flex-shrink-0"
+                        style={{ background: "color-mix(in srgb, var(--color-primary) 15%, transparent)", border: "1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)" }}>
+                        <Check className="w-3 h-3" style={{ color: "var(--color-primary)" }} />
+                      </div>
+                      <span className="text-sm font-medium" style={{ color: muted }}>{p}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Model grid — 3 cols */}
+                <div className="space-y-2">
+                  <p className="text-xs font-mono uppercase tracking-widest" style={{ color: muted, opacity: 0.6 }}>Available models</p>
+                  <div className="grid grid-cols-3 gap-px" style={{ background: border, border: `1px solid ${border}` }}>
+                    {apiModels.map((model) => (
+                      <div key={model.name} className="flex flex-col gap-2 p-4" style={{ background: card }}>
+                        <div className="w-8 h-8 flex items-center justify-center"
+                          style={{ background: `${model.color}18`, border: `1px solid ${model.color}30` }}>
+                          <model.icon className="w-4 h-4" style={{ color: model.color }} />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold" style={{ color: text }}>{model.name}</div>
+                          <div className="text-xs mt-0.5" style={{ color: muted, opacity: 0.7 }}>{model.description}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              
+
+                {/* Stats */}
+                <div className="grid grid-cols-4 gap-px" style={{ background: border, border: `1px solid ${border}` }}>
+                  {[
+                    { n: "50+",    l: "AI Models",    color: "var(--color-primary)" },
+                    { n: "10K",    l: "Free calls",   color: "#10b981" },
+                    { n: "<200ms", l: "Latency",      color: "#06b6d4" },
+                    { n: "99.99%", l: "Uptime",       color: "#10b981" },
+                  ].map(s => (
+                    <div key={s.l} className="flex flex-col items-center py-4" style={{ background: card }}>
+                      <div className="text-lg font-black font-mono" style={{ color: s.color, letterSpacing: "-0.04em" }}>{s.n}</div>
+                      <div className="text-xs mt-0.5 text-center" style={{ color: muted }}>{s.l}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
+
+              {/* RIGHT — form */}
+              <div className="w-full max-w-md mx-auto lg:mx-0">
+                <div className="p-8" style={{ background: card, border: `1px solid ${border}` }}>
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-black" style={{ letterSpacing: "-0.04em", color: text }}>Create account</h2>
+                    <p className="text-sm mt-1" style={{ color: muted }}>10,000 free API calls. No credit card required.</p>
+                  </div>
+                  <SignupForm />
+                  <div className="mt-6 text-center">
+                    <p className="text-sm" style={{ color: muted }}>
+                      Already have an account?{" "}
+                      <Link href="/login" className="font-medium hover:underline underline-offset-4"
+                        style={{ color: "var(--color-primary)" }}>Sign in</Link>
+                    </p>
+                  </div>
+                  <div className="mt-3 text-center">
+                    <Link href="/" className="text-xs hover:underline underline-offset-4" style={{ color: subtle }}>← Back to home</Link>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
