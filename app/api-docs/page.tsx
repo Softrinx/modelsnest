@@ -80,7 +80,7 @@ export default function ApiDocsPage() {
                   <li>Log in to your Outsoor dashboard</li>
                   <li>Navigate to the API section</li>
                   <li>Create a new API token</li>
-                  <li>Copy the generated token (starts with "ptr_")</li>
+                  <li>Copy the generated token (starts with &quot;ptr_&quot;)</li>
                 </ol>
               </div>
 
@@ -117,17 +117,26 @@ export default function ApiDocsPage() {
               
               {/* Token Verification Endpoint */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="default">POST</Badge>
-                  <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                    /api/verify-token
-                  </code>
-                  <Badge variant="secondary">Public</Badge>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Public</Badge>
+                  </div>
+                  <CodeBlock code={`POST /api/verify-token`} language="http" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Verify if an API token is valid and get token information
                 </p>
-                
+
+                <div className="space-y-2">
+                  <h4 className="font-medium">Quick Request</h4>
+                  <CodeBlock
+                    code={`curl -X POST https://outsoor.com/api/verify-token \\
+  -H "Content-Type: application/json" \\
+  -d '{"token":"ptr_your_api_token_here"}'`}
+                    language="bash"
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <h4 className="font-medium">Request Body</h4>
                   <CodeBlock 
@@ -186,17 +195,27 @@ export default function ApiDocsPage() {
 
               {/* Chat API Endpoint */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="default">POST</Badge>
-                  <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                    /api/chat
-                  </code>
-                  <Badge variant="outline">Protected</Badge>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">Protected</Badge>
+                  </div>
+                  <CodeBlock code={`POST /api/chat`} language="http" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Send messages to the AI chat system
                 </p>
-                
+
+                <div className="space-y-2">
+                  <h4 className="font-medium">Quick Request</h4>
+                  <CodeBlock
+                    code={`curl -X POST https://outsoor.com/api/chat \\
+  -H "Authorization: Bearer ptr_your_api_token_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{"message":"Your message here"}'`}
+                    language="bash"
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <h4 className="font-medium">Headers Required</h4>
                   <CodeBlock 
@@ -221,17 +240,25 @@ Content-Type: application/json`}
 
               {/* User Info Endpoint */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="default">GET</Badge>
-                  <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                    /api/auth/me
-                  </code>
-                  <Badge variant="outline">Protected</Badge>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">Protected</Badge>
+                  </div>
+                  <CodeBlock code={`GET /api/auth/me`} language="http" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Get current user information
                 </p>
-                
+
+                <div className="space-y-2">
+                  <h4 className="font-medium">Quick Request</h4>
+                  <CodeBlock
+                    code={`curl -X GET https://outsoor.com/api/auth/me \\
+  -H "Authorization: Bearer ptr_your_api_token_here"`}
+                    language="bash"
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <h4 className="font-medium">Headers Required</h4>
                   <CodeBlock 
