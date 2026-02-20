@@ -26,9 +26,20 @@ export async function middleware(request: NextRequest) {
   const protectedRoutes = ["/dashboard"]
   const authRoutes = ["/login", "/signup"]
   const adminRoutes = ["/admin"]
+  const adminLoginRoute = "/admin/login"
 
   const isAuthenticated = !!user
   const isAdmin = isAuthenticated && ADMIN_EMAILS.includes(user?.email?.toLowerCase() || "")
+
+  // Allow access to admin login page for everyone
+  if (pathname === adminLoginRoute) {
+    // If already logged in as admin, redirect to admin panel
+    if (isAdmin) {
+      return NextResponse.redirect(new URL("/admin", request.url))
+    }
+    // Otherwise, allow access to login page
+    return response
+  }
 
   // Redirect authenticated users away from auth pages
   if (

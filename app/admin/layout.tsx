@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { AdminLayoutClient } from "./admin-layout-client"
-import { AdminLoginForm } from "@/components/admin-login-form"
 
 // List of admin emails - must match the one in other auth files
 const ADMIN_EMAILS = ["admin@outsoor.com"]
@@ -18,8 +17,11 @@ export default async function AdminLayout({
 
   const isAdmin = user && ADMIN_EMAILS.includes(user.email?.toLowerCase() || "")
 
+  // If not authenticated or not admin, just render children
+  // The middleware will handle the redirect to /admin/login if needed
+  // This prevents infinite redirect loops
   if (!user || !isAdmin) {
-    return <AdminLoginForm />
+    return <>{children}</>
   }
 
   return (

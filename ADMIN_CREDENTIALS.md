@@ -2,13 +2,20 @@
 
 ## Admin Panel Access
 
-**URL:** `/admin/login`
+**Login URL:** [http://localhost:3000/admin/login](http://localhost:3000/admin/login)
 
 **Credentials:**
 - Email: `admin@outsoor.com`
 - Password: `admin123!@#`
 
 > ⚠️ **IMPORTANT:** Change this password after first login!
+
+## Login Flow
+
+1. Navigate to `/admin/login`
+2. Enter admin credentials
+3. Upon successful login, you'll be redirected to `/admin` (admin dashboard)
+4. If you try to access `/admin` without being logged in, you'll be automatically redirected to `/admin/login`
 
 ## How Admin Access Works
 

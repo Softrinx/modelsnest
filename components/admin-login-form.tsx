@@ -64,6 +64,7 @@ export function AdminLoginForm() {
         console.log("Login successful, redirecting...")
         setIsLoading(false)
         router.push("/admin")
+        router.refresh()
       }
     } catch (error) {
       console.error("Admin login error:", error)
