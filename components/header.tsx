@@ -49,7 +49,7 @@ export function Header() {
 
   return (
     <header
-      className="w-full sticky top-0 z-50 transition-all duration-300"
+      className="w-full fixed top-0 z-50 transition-all duration-300"
       style={{
         background: scrolled
           ? `color-mix(in srgb, var(--color-surface-1) 90%, transparent)`

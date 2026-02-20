@@ -29,7 +29,8 @@ export function VisionSection() {
         .marquee-track {
           display: flex;
           width: max-content;
-          animation: marquee 28s linear infinite;
+          animation: marquee 24s linear infinite;
+          align-items: center;
         }
       `}</style>
 
@@ -38,12 +39,14 @@ export function VisionSection() {
         style={{
           background: isDark ? "var(--color-surface-1)" : "var(--color-surface-2)",
           marginTop: "-80px",
-          paddingTop: "140px",
-          paddingBottom: "100px",
+          paddingTop: "clamp(100px, 14vw, 160px)",
+          paddingBottom: "clamp(60px, 8vw, 100px)",
           borderRadius: "3.5rem 3.5rem 0 0",
+          position: "relative",
+          zIndex: 10,
         }}
       >
-        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
 
           {/* Left — text */}
           <motion.div
@@ -54,8 +57,13 @@ export function VisionSection() {
             className="flex flex-col gap-5"
           >
             <h2
-              className="text-4xl md:text-5xl font-black leading-tight tracking-tight"
-              style={{ color: "var(--color-text)" }}
+              style={{
+                color: "var(--color-text)",
+                fontSize: "clamp(1.9rem, 4vw, 3.2rem)",
+                fontWeight: 900,
+                lineHeight: 1.15,
+                letterSpacing: "-0.03em",
+              }}
             >
               Making AI{" "}
               <span
@@ -71,7 +79,14 @@ export function VisionSection() {
               to Everyone, Everywhere
             </h2>
 
-            <p className="text-lg leading-relaxed max-w-md" style={{ color: "var(--color-text-muted)" }}>
+            <p
+              style={{
+                color: "var(--color-text-muted)",
+                fontSize: "clamp(0.9rem, 1.8vw, 1.05rem)",
+                lineHeight: 1.7,
+                maxWidth: "32rem",
+              }}
+            >
               We believe artificial intelligence should be a force multiplier for every developer, startup, and enterprise. Outsoor breaks down barriers with unified APIs, transparent pricing, and infrastructure that scales from your first API call to billions.
             </p>
 
@@ -87,7 +102,7 @@ export function VisionSection() {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, delay: 0.15 }}
-            className="overflow-hidden"
+            className="overflow-hidden w-full"
             style={{
               maskImage: "linear-gradient(90deg, transparent, black 8%, black 92%, transparent)",
             }}
@@ -100,10 +115,10 @@ export function VisionSection() {
                   alt=""
                   style={{
                     flexShrink: 0,
-                    height: "3rem",
+                    height: "clamp(1.8rem, 3.5vw, 2.75rem)",
                     width: "auto",
                     objectFit: "contain",
-                    marginRight: "1.75rem",
+                    marginRight: "clamp(1rem, 2.5vw, 1.5rem)",
                     filter: isDark
                       ? "brightness(0) invert(1) opacity(0.55)"
                       : "brightness(0) opacity(0.4)",
