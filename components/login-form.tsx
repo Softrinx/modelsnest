@@ -10,6 +10,8 @@ import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
 
+const ADMIN_EMAILS = ["admin@outsoor.com"]
+
 export function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -49,9 +51,15 @@ export function LoginForm() {
         setError(result.error.message)
         setIsLoading(false)
       } else {
-        console.log("Login successful, redirecting...")
+        const loggedInEmail = result.data.user?.email?.toLowerCase()
+        const redirectPath = loggedInEmail && ADMIN_EMAILS.includes(loggedInEmail)
+          ? "/admin"
+          : "/dashboard"
+
+        console.log("Login successful, redirecting to:", redirectPath)
         setIsLoading(false)
-        router.push("/dashboard")
+        router.push(redirectPath)
+        router.refresh()
       }
     } catch (error) {
       console.error("Login error:", error)
