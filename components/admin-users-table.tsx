@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select"
 import { AdminUserTopUpDialog } from "@/components/admin-user-topup-dialog"
 import { AdminUserDeductDialog } from "@/components/admin-user-deduct-dialog"
+import { AdminUserSuspendDialog } from "@/components/admin-user-suspend-dialog"
 import { Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { AdminUser } from "@/app/actions/admin"
 
@@ -129,6 +130,7 @@ export function AdminUsersTable({ users }: AdminUsersTableProps) {
               <TableHead className="text-[#9ca3af]">Name</TableHead>
               <TableHead className="text-[#9ca3af]">Email</TableHead>
               <TableHead className="text-[#9ca3af]">Role</TableHead>
+              <TableHead className="text-[#9ca3af]">Status</TableHead>
               <TableHead className="text-[#9ca3af]">Balance</TableHead>
               <TableHead className="text-[#9ca3af]">Created At</TableHead>
               <TableHead className="text-[#9ca3af] text-right">Actions</TableHead>
@@ -137,7 +139,7 @@ export function AdminUsersTable({ users }: AdminUsersTableProps) {
           <TableBody>
             {paginatedUsers.length === 0 ? (
               <TableRow className="border-[#2d2d32]">
-                <TableCell colSpan={6} className="text-center text-[#9ca3af] py-8">
+                <TableCell colSpan={7} className="text-center text-[#9ca3af] py-8">
                   No users found
                 </TableCell>
               </TableRow>
@@ -151,12 +153,22 @@ export function AdminUsersTable({ users }: AdminUsersTableProps) {
                       {user.role}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {user.is_suspended ? (
+                      <Badge className="bg-amber-600/80 text-white">
+                        {user.suspended_until ? `Suspended until ${new Date(user.suspended_until).toLocaleDateString()}` : "Suspended"}
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-emerald-700/70 text-white">Active</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>${user.balance.toFixed(2)}</TableCell>
                   <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <AdminUserTopUpDialog userId={user.id} userEmail={user.email} currentBalance={user.balance} />
                       <AdminUserDeductDialog userId={user.id} userEmail={user.email} currentBalance={user.balance} />
+                      <AdminUserSuspendDialog userId={user.id} userEmail={user.email} isSuspended={user.is_suspended} />
                     </div>
                   </TableCell>
                 </TableRow>

@@ -36,9 +36,17 @@ export interface AdminUser {
   created_at: string
   balance: number
   last_sign_in_at: string | null
+  is_suspended: boolean
+  suspended_until: string | null
 }
 
 interface AdminTopUpResult {
+  success: boolean
+  message?: string
+  error?: string
+}
+
+interface AdminSuspendResult {
   success: boolean
   message?: string
   error?: string
@@ -94,15 +102,23 @@ export async function getUsers(): Promise<AdminUser[]> {
     }
 
     // Transform Supabase users to AdminUser format
-    const adminUsers: AdminUser[] = users.map(user => ({
-      id: user.id,
-      email: user.email || 'No email',
-      name: user.user_metadata?.name || user.user_metadata?.full_name || null,
-      role: ADMIN_EMAILS.includes(user.email?.toLowerCase() || '') ? 'admin' : 'user',
-      created_at: user.created_at,
-      balance: 0, // TODO: Fetch from user_credits table when implemented
-      last_sign_in_at: user.last_sign_in_at || null,
-    }))
+    const adminUsers: AdminUser[] = users.map((user) => {
+      const suspendedUntil = user.banned_until || null
+      const suspendedUntilTime = suspendedUntil ? new Date(suspendedUntil).getTime() : null
+      const isSuspended = suspendedUntilTime !== null && Number.isFinite(suspendedUntilTime) && suspendedUntilTime > Date.now()
+
+      return {
+        id: user.id,
+        email: user.email || 'No email',
+        name: user.user_metadata?.name || user.user_metadata?.full_name || null,
+        role: ADMIN_EMAILS.includes(user.email?.toLowerCase() || '') ? 'admin' : 'user',
+        created_at: user.created_at,
+        balance: 0, // TODO: Fetch from user_credits table when implemented
+        last_sign_in_at: user.last_sign_in_at || null,
+        is_suspended: isSuspended,
+        suspended_until: suspendedUntil,
+      }
+    })
 
     // Sort by created_at descending (newest first)
     return adminUsers.sort((a, b) => 
@@ -154,6 +170,88 @@ export async function adminDeductUserCreditsAction(formData: FormData): Promise<
 
   // Return success
   return { success: true, message: `Successfully deducted $${amount.toFixed(2)} from user account` }
+}
+
+// Suspend/deactivate user account
+export async function adminSuspendUserAction(formData: FormData): Promise<AdminSuspendResult> {
+  const currentAdmin = await requireAdmin()
+  const supabase = await createAdminClient()
+
+  const userId = formData.get("userId") as string | null
+  const mode = formData.get("mode") as "days" | "indefinite" | null
+  const daysValue = formData.get("days") as string | null
+
+  if (!userId) {
+    return { success: false, error: "Missing user ID" }
+  }
+
+  if (!mode || (mode !== "days" && mode !== "indefinite")) {
+    return { success: false, error: "Invalid suspension mode" }
+  }
+
+  if (userId === currentAdmin.id) {
+    return { success: false, error: "You cannot suspend your own account" }
+  }
+
+  const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId)
+  if (userError || !userData.user) {
+    return { success: false, error: "User not found" }
+  }
+
+  const targetEmail = userData.user.email?.toLowerCase() || ""
+  if (ADMIN_EMAILS.includes(targetEmail)) {
+    return { success: false, error: "Cannot suspend another admin account" }
+  }
+
+  let banDuration: string
+  let successMessage: string
+
+  if (mode === "indefinite") {
+    banDuration = "876000h"
+    successMessage = "User deactivated indefinitely"
+  } else {
+    const days = daysValue ? Number.parseInt(daysValue, 10) : NaN
+    if (!Number.isInteger(days) || days <= 0 || days > 3650) {
+      return { success: false, error: "Days must be an integer between 1 and 3650" }
+    }
+
+    banDuration = `${days * 24}h`
+    successMessage = `User suspended for ${days} day${days > 1 ? "s" : ""}`
+  }
+
+  const { error: suspendError } = await supabase.auth.admin.updateUserById(userId, {
+    ban_duration: banDuration,
+  })
+
+  if (suspendError) {
+    console.error("Error suspending user:", suspendError)
+    return { success: false, error: suspendError.message || "Failed to suspend user" }
+  }
+
+  return { success: true, message: successMessage }
+}
+
+// Reactivate suspended user account
+export async function adminUnsuspendUserAction(formData: FormData): Promise<AdminSuspendResult> {
+  await requireAdmin()
+  const supabase = await createAdminClient()
+
+  const userId = formData.get("userId") as string | null
+
+  if (!userId) {
+    return { success: false, error: "Missing user ID" }
+  }
+
+  const { error } = await supabase.auth.admin.updateUserById(userId, {
+    ban_duration: "none",
+  })
+
+  if (error) {
+    console.error("Error reactivating user:", error)
+    return { success: false, error: error.message || "Failed to reactivate user" }
+  }
+
+  return { success: true, message: "User reactivated successfully" }
 }
 
 // Get all transactions with dummy data
