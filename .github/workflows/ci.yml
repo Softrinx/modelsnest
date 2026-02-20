@@ -50,7 +50,7 @@ jobs:
         run: npm ci
 
       - name: Lint frontend
-        run: npm run lint -- --dir app --dir components --dir contexts --dir hooks
+        run: npx eslint app components contexts hooks
 
   frontend_build:
     name: Frontend Build
@@ -103,7 +103,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Lint backend
-        run: npm run lint -- --dir app/api --dir app/actions --dir lib
+        run: npx eslint app/api app/actions lib
 
   backend_build:
     name: Backend Build
