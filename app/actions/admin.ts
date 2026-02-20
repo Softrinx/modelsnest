@@ -1,6 +1,10 @@
 "use server"
 
 import { requireAdmin } from "@/lib/auth"
+import { createAdminClient } from "@/lib/supabase/server"
+
+// List of admin emails for role detection
+const ADMIN_EMAILS = ["admin@outsoor.com"]
 
 export interface AdminStats {
   totalUsers: number
@@ -31,6 +35,7 @@ export interface AdminUser {
   role: string
   created_at: string
   balance: number
+  last_sign_in_at: string | null
 }
 
 interface AdminTopUpResult {
@@ -39,47 +44,74 @@ interface AdminTopUpResult {
   error?: string
 }
 
-// Get admin stats with dummy data
+// Get admin stats - fetches real data from Supabase
 export async function getAdminStats(): Promise<AdminStats> {
   await requireAdmin()
 
-  return {
-    totalUsers: 1_250,
-    totalRevenue: 45_320.75,
-    totalUsageCost: 28_934.50,
+  try {
+    const supabase = await createAdminClient()
+    
+    // Get total users count using Supabase Admin API
+    const { data: { users }, error } = await supabase.auth.admin.listUsers()
+    
+    if (error) {
+      console.error("Error fetching users for stats:", error)
+      return {
+        totalUsers: 0,
+        totalRevenue: 0,
+        totalUsageCost: 0,
+      }
+    }
+
+    return {
+      totalUsers: users?.length || 0,
+      totalRevenue: 0, // TODO: Implement when transactions table is ready
+      totalUsageCost: 0, // TODO: Implement when transactions table is ready
+    }
+  } catch (error) {
+    console.error("Error in getAdminStats:", error)
+    return {
+      totalUsers: 0,
+      totalRevenue: 0,
+      totalUsageCost: 0,
+    }
   }
 }
 
-// Get all users with dummy data
+// Get all users - fetches real data from Supabase Auth
 export async function getUsers(): Promise<AdminUser[]> {
   await requireAdmin()
 
-  return [
-    {
-      id: "user_1",
-      email: "john@example.com",
-      name: "John Doe",
-      role: "user",
-      created_at: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-      balance: 250.50,
-    },
-    {
-      id: "user_2",
-      email: "jane@example.com",
-      name: "Jane Smith",
-      role: "user",
-      created_at: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
-      balance: 1200.00,
-    },
-    {
-      id: "user_3",
-      email: "bob@example.com",
-      name: "Bob Johnson",
-      role: "user",
-      created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-      balance: 0.00,
-    },
-  ]
+  try {
+    const supabase = await createAdminClient()
+    
+    // Fetch all users from Supabase Auth using Admin API
+    const { data: { users }, error } = await supabase.auth.admin.listUsers()
+    
+    if (error) {
+      console.error("Error fetching users:", error)
+      return []
+    }
+
+    // Transform Supabase users to AdminUser format
+    const adminUsers: AdminUser[] = users.map(user => ({
+      id: user.id,
+      email: user.email || 'No email',
+      name: user.user_metadata?.name || user.user_metadata?.full_name || null,
+      role: ADMIN_EMAILS.includes(user.email?.toLowerCase() || '') ? 'admin' : 'user',
+      created_at: user.created_at,
+      balance: 0, // TODO: Fetch from user_credits table when implemented
+      last_sign_in_at: user.last_sign_in_at || null,
+    }))
+
+    // Sort by created_at descending (newest first)
+    return adminUsers.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+  } catch (error) {
+    console.error("Error in getUsers:", error)
+    return []
+  }
 }
 
 // Admin manual top-up for a specific user
