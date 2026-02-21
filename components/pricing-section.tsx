@@ -11,7 +11,7 @@ const plans = [
     key: "usage",
     icon: Zap,
     label: "Pay as you scale",
-    price: "$0.001",
+    price: "$50",
     sub: "per 1K tokens, no monthly fees",
     features: [
       "All 50+ models",
