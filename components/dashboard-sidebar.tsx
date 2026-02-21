@@ -38,7 +38,7 @@ function TooltipPortal({
   label, sub, color, anchorRef, visible,
 }: {
   label: string; sub: string; color: string
-  anchorRef: React.RefObject<HTMLDivElement>; visible: boolean
+  anchorRef: React.RefObject<HTMLDivElement | null>; visible: boolean
 }) {
   const { isDark } = useTheme()
   const [pos, setPos] = useState({ top: 0 })
@@ -226,7 +226,7 @@ function SidebarBody({
   collapsed: boolean; user: DashboardUser
   credits: Credits | null; onClose?: () => void
 }) {
-  const { isDark, mode, setMode } = useTheme()
+  const { isDark, setMode } = useTheme()
   const pathname = usePathname()
 
   const bg     = isDark ? "#0d0d10" : "#ffffff"
