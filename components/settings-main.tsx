@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { updateUserProfile, changePassword, logoutUser, getProfile, updateNotificationSettings } from "@/app/actions/settings"
+import { useState, useEffect, useRef } from "react"
+import { updateUserProfile, changePassword, logoutUser, getProfile, updateNotificationSettings, uploadProfileImage } from "@/app/actions/settings"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,7 +32,8 @@ export function SettingsMain({ user }: SettingsMainProps) {
   const [profileData, setProfileData] = useState({
     name: user.user_metadata?.name || user.name || '',
     bio: '',
-    location: ''
+    location: '',
+    profile_image: ''
   })
 
   const [passwordData, setPasswordData] = useState({
@@ -40,11 +41,34 @@ export function SettingsMain({ user }: SettingsMainProps) {
     confirmPassword: ''
   })
 
+  const [appearance, setAppearance] = useState({
+    darkTheme: true
+  })
+
   const [notifications, setNotifications] = useState({
-    email: true,
-    push: false,
-    chat: true,
-    updates: true
+    email: {
+      enabled: true,
+      security: true,
+      billing: true,
+      updates: true,
+      marketing: false
+    },
+    push: {
+      enabled: false,
+      chat: true,
+      security: true
+    },
+    inApp: {
+      enabled: true,
+      chat: true,
+      tips: true
+    }
+  })
+
+  const [quietHours, setQuietHours] = useState({
+    enabled: false,
+    start: '20:00',
+    end: '08:00'
   })
 
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
@@ -57,6 +81,11 @@ export function SettingsMain({ user }: SettingsMainProps) {
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  const [isLoadingImage, setIsLoadingImage] = useState(false)
+  const [imageMessage, setImageMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [profileImageUrl, setProfileImageUrl] = useState<string>('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     let isMounted = true
 
@@ -68,11 +97,54 @@ export function SettingsMain({ user }: SettingsMainProps) {
       }
 
       if (result.success && result.data) {
+        setProfileData((prev) => ({
+          ...prev,
+          bio: result.data.bio || '',
+          location: result.data.location || '',
+          profile_image: result.data.profile_image || ''
+        }))
+
+        // Set profile image URL if available
+        if (result.data.profile_image) {
+          // Construct the public URL for the image
+          const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/profile_images/${result.data.profile_image}`
+          setProfileImageUrl(imageUrl)
+        }
+
         setNotifications((prev) => ({
           ...prev,
-          email: result.data.email_notifications,
-          push: result.data.push_notifications
+          email: {
+            ...prev.email,
+            enabled: result.data.email_notifications,
+            security: result.data.security_alerts,
+            billing: result.data.billing_notifications,
+            updates: result.data.product_updates,
+            marketing: result.data.marketing_updates
+          },
+          push: {
+            ...prev.push,
+            enabled: result.data.push_notifications,
+            chat: result.data.chat_messages,
+            security: result.data.security_push_alerts
+          },
+          inApp: {
+            ...prev.inApp,
+            enabled: result.data.in_app_notifications,
+            chat: result.data.chat_notifications,
+            tips: result.data.tips
+          }
         }))
+
+        setQuietHours((prev) => ({
+          ...prev,
+          enabled: result.data.quiet_hours,
+          start: result.data.quiet_hours_start.substring(0, 5),
+          end: result.data.quiet_hours_end.substring(0, 5)
+        }))
+
+        setAppearance({
+          darkTheme: result.data.dark_theme
+        })
       }
     }
 
@@ -90,6 +162,8 @@ export function SettingsMain({ user }: SettingsMainProps) {
     try {
       const formData = new FormData()
       formData.append('name', profileData.name)
+      formData.append('bio', profileData.bio)
+      formData.append('location', profileData.location)
 
       const result = await updateUserProfile(formData)
 
@@ -138,28 +212,153 @@ export function SettingsMain({ user }: SettingsMainProps) {
     }
   }
 
-  const handleNotificationToggle = async (key: "email" | "push") => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsLoadingImage(true)
+    setImageMessage(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const result = await uploadProfileImage(formData)
+
+      if (result.success && result.data) {
+        const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/profile_images/${result.data.profile_image}`
+        setProfileImageUrl(imageUrl)
+        setProfileData((prev) => ({ ...prev, profile_image: result.data.profile_image }))
+        setImageMessage({ type: 'success', text: result.message || 'Profile image updated successfully' })
+      } else {
+        setImageMessage({ type: 'error', text: result.error || 'Failed to upload image' })
+      }
+    } catch (error) {
+      setImageMessage({ type: 'error', text: 'An unexpected error occurred' })
+    } finally {
+      setIsLoadingImage(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleImageButtonClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleNotificationToggle = async (category: string, subcategory: string) => {
     setNotificationsMessage(null)
     setIsLoadingNotifications(true)
 
-    // Compute next value based on current state
-    const nextValue = !notifications[key]
+    // Compute next value from current state
+    const current = (notifications[category as keyof typeof notifications] as any)[subcategory]
+    const nextValue = !current
 
-    // Update state
-    setNotifications((prev) => ({ ...prev, [key]: nextValue }))
+    setNotifications((prev) => ({
+      ...prev,
+      [category]: {
+        ...prev[category as keyof typeof prev],
+        [subcategory]: nextValue
+      }
+    }))
 
-    // Use the computed value for API call
-    const updates = key === "email"
-      ? { email_notifications: nextValue }
-      : { push_notifications: nextValue }
+    const profileFieldMap: Record<string, Record<string, string>> = {
+      email: {
+        enabled: "email_notifications",
+        security: "security_alerts",
+        billing: "billing_notifications",
+        updates: "product_updates",
+        marketing: "marketing_updates"
+      },
+      push: {
+        enabled: "push_notifications",
+        chat: "chat_messages",
+        security: "security_push_alerts"
+      },
+      inApp: {
+        enabled: "in_app_notifications",
+        chat: "chat_notifications",
+        tips: "tips"
+      }
+    }
+
+    const profileField = profileFieldMap[category]?.[subcategory]
+
+    if (!profileField) {
+      setIsLoadingNotifications(false)
+      return
+    }
+
+    const result = await updateNotificationSettings({ [profileField]: nextValue })
+
+    if (!result.success) {
+      setNotifications((prev) => ({
+        ...prev,
+        [category]: {
+          ...prev[category as keyof typeof prev],
+          [subcategory]: !nextValue
+        }
+      }))
+      setNotificationsMessage({ type: 'error', text: result.error || 'Failed to update notifications' })
+    } else {
+      setNotificationsMessage({ type: 'success', text: 'Notification preferences updated' })
+    }
+
+    setIsLoadingNotifications(false)
+  }
+
+  const handleQuietHoursToggle = async () => {
+    setNotificationsMessage(null)
+    setIsLoadingNotifications(true)
+
+    const nextEnabled = !quietHours.enabled
+    setQuietHours((prev) => ({ ...prev, enabled: nextEnabled }))
+
+    const result = await updateNotificationSettings({ quiet_hours: nextEnabled })
+
+    if (!result.success) {
+      setQuietHours((prev) => ({ ...prev, enabled: !nextEnabled }))
+      setNotificationsMessage({ type: 'error', text: result.error || 'Failed to update quiet hours' })
+    } else {
+      setNotificationsMessage({ type: 'success', text: 'Quiet hours updated' })
+    }
+
+    setIsLoadingNotifications(false)
+  }
+
+  const handleQuietHoursChange = async (field: 'start' | 'end', value: string) => {
+    setNotificationsMessage(null)
+    const newQuietHours = { ...quietHours, [field]: value }
+    setQuietHours(newQuietHours)
+
+    const updates: any = {
+      [field === 'start' ? 'quiet_hours_start' : 'quiet_hours_end']: value
+    }
 
     const result = await updateNotificationSettings(updates)
 
     if (!result.success) {
-      setNotifications((prev) => ({ ...prev, [key]: !nextValue }))
-      setNotificationsMessage({ type: 'error', text: result.error || 'Failed to update notifications' })
+      setQuietHours((prev) => ({ ...prev, [field]: quietHours[field] }))
+      setNotificationsMessage({ type: 'error', text: result.error || 'Failed to update quiet hours' })
+    }
+  }
+
+  const handleAppearanceToggle = async () => {
+    setIsLoadingNotifications(true)
+    setNotificationsMessage(null)
+
+    const nextValue = !appearance.darkTheme
+    setAppearance({ darkTheme: nextValue })
+
+    const result = await updateNotificationSettings({ dark_theme: nextValue })
+
+    if (!result.success) {
+      setAppearance({ darkTheme: !nextValue })
+      setNotificationsMessage({ type: 'error', text: result.error || 'Failed to update appearance' })
     } else {
-      setNotificationsMessage({ type: 'success', text: 'Notification preferences updated' })
+      setNotificationsMessage({ type: 'success', text: 'Appearance settings updated' })
     }
 
     setIsLoadingNotifications(false)
@@ -234,18 +433,56 @@ export function SettingsMain({ user }: SettingsMainProps) {
                   {/* Avatar Section */}
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-20 h-20 bg-gradient-to-br from-[#8C5CF7] to-[#3B1F82] rounded-full flex items-center justify-center">
-                        <span className="text-white font-semibold text-2xl">{(user.user_metadata?.name || user.name || 'U')?.[0]?.toUpperCase()}</span>
-                      </div>
-                      <Button size="sm" className="absolute -bottom-1 -right-1 w-8 h-8 p-0 rounded-full bg-[#2D2D32] border border-[#3D3D42] hover:bg-[#3D3D42]">
+                      {profileImageUrl ? (
+                        <img 
+                          src={profileImageUrl} 
+                          alt="Profile" 
+                          className="w-20 h-20 rounded-full object-cover border-2 border-[#8C5CF7]"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 bg-gradient-to-br from-[#8C5CF7] to-[#3B1F82] rounded-full flex items-center justify-center">
+                          <span className="text-white font-semibold text-2xl">{(user.user_metadata?.name || user.name || 'U')?.[0]?.toUpperCase()}</span>
+                        </div>
+                      )}
+                      <Button 
+                        size="sm" 
+                        onClick={handleImageButtonClick}
+                        disabled={isLoadingImage}
+                        className="absolute -bottom-1 -right-1 w-8 h-8 p-0 rounded-full bg-[#2D2D32] border border-[#3D3D42] hover:bg-[#3D3D42]"
+                      >
                         <Camera className="w-4 h-4" />
                       </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
                     </div>
                     <div>
                       <h3 className="text-white font-medium">{user.user_metadata?.name || user.name || 'User'}</h3>
                       <p className="text-[#A0A0A8] text-sm">{user.email}</p>
                     </div>
                   </div>
+
+                  {/* Image Upload Message */}
+                  {imageMessage && (
+                    <div className={`p-4 rounded-lg border flex items-center gap-3 ${
+                      imageMessage.type === 'success' 
+                        ? 'bg-green-500/10 border-green-500/30' 
+                        : 'bg-red-500/10 border-red-500/30'
+                    }`}>
+                      {imageMessage.type === 'success' ? (
+                        <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                      )}
+                      <p className={imageMessage.type === 'success' ? 'text-green-300' : 'text-red-300'}>
+                        {imageMessage.text}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Form Fields */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -442,13 +679,13 @@ export function SettingsMain({ user }: SettingsMainProps) {
                       <p className="text-[#A0A0A8] text-sm">Receive updates via email</p>
                     </div>
                     <Button
-                      variant={notifications.email ? "default" : "outline"}
+                      variant={notifications.email.enabled ? "default" : "outline"}
                       size="sm"
-                      onClick={() => handleNotificationToggle("email")}
+                      onClick={() => handleNotificationToggle("email", "enabled")}
                       disabled={isLoadingNotifications}
-                      className={notifications.email ? "bg-[#8C5CF7]" : "border-[#2D2D32] text-[#A0A0A8]"}
+                      className={notifications.email.enabled ? "bg-[#8C5CF7]" : "border-[#2D2D32] text-[#A0A0A8]"}
                     >
-                      {notifications.email ? "On" : "Off"}
+                      {notifications.email.enabled ? "On" : "Off"}
                     </Button>
                   </div>
                   <div className="flex items-center justify-between">
@@ -457,13 +694,13 @@ export function SettingsMain({ user }: SettingsMainProps) {
                       <p className="text-[#A0A0A8] text-sm">Receive push notifications</p>
                     </div>
                     <Button
-                      variant={notifications.push ? "default" : "outline"}
+                      variant={notifications.push.enabled ? "default" : "outline"}
                       size="sm"
-                      onClick={() => handleNotificationToggle("push")}
+                      onClick={() => handleNotificationToggle("push", "enabled")}
                       disabled={isLoadingNotifications}
-                      className={notifications.push ? "bg-[#8C5CF7]" : "border-[#2D2D32] text-[#A0A0A8]"}
+                      className={notifications.push.enabled ? "bg-[#8C5CF7]" : "border-[#2D2D32] text-[#A0A0A8]"}
                     >
-                      {notifications.push ? "On" : "Off"}
+                      {notifications.push.enabled ? "On" : "Off"}
                     </Button>
                   </div>
                 </CardContent>
@@ -483,13 +720,35 @@ export function SettingsMain({ user }: SettingsMainProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {notificationsMessage && (
+                    <div className={`p-4 rounded-lg border flex items-center gap-3 ${
+                      notificationsMessage.type === 'success'
+                        ? 'bg-green-500/10 border-green-500/30'
+                        : 'bg-red-500/10 border-red-500/30'
+                    }`}>
+                      {notificationsMessage.type === 'success' ? (
+                        <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                      )}
+                      <p className={notificationsMessage.type === 'success' ? 'text-green-300' : 'text-red-300'}>
+                        {notificationsMessage.text}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-white font-medium">Dark Theme</h4>
-                      <p className="text-[#A0A0A8] text-sm">Use dark theme (always enabled)</p>
+                      <p className="text-[#A0A0A8] text-sm">Use dark theme for the interface</p>
                     </div>
-                    <Button variant="default" size="sm" className="bg-[#8C5CF7]" disabled>
-                      On
+                    <Button
+                      variant={appearance.darkTheme ? "default" : "outline"}
+                      size="sm"
+                      onClick={handleAppearanceToggle}
+                      disabled={isLoadingNotifications}
+                      className={appearance.darkTheme ? "bg-[#8C5CF7]" : "border-[#2D2D32] text-[#A0A0A8]"}
+                    >
+                      {appearance.darkTheme ? "On" : "Off"}
                     </Button>
                   </div>
                 </CardContent>

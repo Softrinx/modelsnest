@@ -87,8 +87,25 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
           },
           push: {
             ...prev.push,
-            enabled: result.data.push_notifications
+            enabled: result.data.push_notifications,
+            chat: result.data.chat_messages,
+            updates: result.data.product_updates,
+            security: result.data.security_push_alerts
+          },
+          inApp: {
+            ...prev.inApp,
+            enabled: result.data.in_app_notifications,
+            chat: result.data.chat_notifications,
+            updates: result.data.product_updates,
+            tips: result.data.tips
           }
+        }))
+
+        setQuietHours((prev) => ({
+          ...prev,
+          enabled: result.data.quiet_hours,
+          start: result.data.quiet_hours_start.substring(0, 5),
+          end: result.data.quiet_hours_end.substring(0, 5)
         }))
       }
     }
@@ -103,18 +120,17 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
   const toggleNotification = async (category: string, subcategory: string) => {
     setSaveMessage(null)
 
-    let nextValue = false
-    setNotifications(prev => {
-      const current = (prev[category as keyof typeof prev] as any)[subcategory]
-      nextValue = !current
-      return {
-        ...prev,
-        [category]: {
-          ...prev[category as keyof typeof prev],
-          [subcategory]: nextValue
-        }
+    // Compute next value from current state
+    const current = (notifications[category as keyof typeof notifications] as any)[subcategory]
+    const nextValue = !current
+
+    setNotifications(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category as keyof typeof prev],
+        [subcategory]: nextValue
       }
-    })
+    }))
 
     const profileFieldMap: Record<string, Record<string, string>> = {
       email: {
@@ -125,7 +141,16 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
         marketing: "marketing_updates"
       },
       push: {
-        enabled: "push_notifications"
+        enabled: "push_notifications",
+        chat: "chat_messages",
+        updates: "product_updates",
+        security: "security_push_alerts"
+      },
+      inApp: {
+        enabled: "in_app_notifications",
+        chat: "chat_notifications",
+        updates: "product_updates",
+        tips: "tips"
       }
     }
 
@@ -152,8 +177,37 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
     setSaveMessage({ type: 'success', text: 'Notification preferences updated' })
   }
 
-  const toggleQuietHours = () => {
-    setQuietHours(prev => ({ ...prev, enabled: !prev.enabled }))
+  const toggleQuietHours = async () => {
+    setSaveMessage(null)
+
+    const nextEnabled = !quietHours.enabled
+    setQuietHours((prev) => ({ ...prev, enabled: nextEnabled }))
+
+    const result = await updateNotificationSettings({ quiet_hours: nextEnabled } as NotificationUpdates)
+
+    if (!result.success) {
+      setQuietHours((prev) => ({ ...prev, enabled: !nextEnabled }))
+      setSaveMessage({ type: 'error', text: result.error || 'Failed to update quiet hours' })
+    } else {
+      setSaveMessage({ type: 'success', text: 'Quiet hours updated' })
+    }
+  }
+
+  const handleQuietHoursChange = async (field: 'start' | 'end', value: string) => {
+    setSaveMessage(null)
+    const newQuietHours = { ...quietHours, [field]: value }
+    setQuietHours(newQuietHours)
+
+    const updates: any = {
+      [field === 'start' ? 'quiet_hours_start' : 'quiet_hours_end']: value
+    }
+
+    const result = await updateNotificationSettings(updates as NotificationUpdates)
+
+    if (!result.success) {
+      setQuietHours((prev) => ({ ...prev, [field]: quietHours[field] }))
+      setSaveMessage({ type: 'error', text: result.error || 'Failed to update quiet hours' })
+    }
   }
 
   const markAsRead = (id: number) => {
@@ -468,7 +522,7 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
                     <input
                       type="time"
                       value={quietHours.start}
-                      onChange={(e) => setQuietHours({...quietHours, start: e.target.value})}
+                      onChange={(e) => handleQuietHoursChange('start', e.target.value)}
                       className="mt-1 w-full bg-[#2D2D32] border border-[#3D3D42] text-white rounded px-3 py-2"
                     />
                   </div>
@@ -477,7 +531,7 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
                     <input
                       type="time"
                       value={quietHours.end}
-                      onChange={(e) => setQuietHours({...quietHours, end: e.target.value})}
+                      onChange={(e) => handleQuietHoursChange('end', e.target.value)}
                       className="mt-1 w-full bg-[#2D2D32] border border-[#3D3D42] text-white rounded px-3 py-2"
                     />
                   </div>
