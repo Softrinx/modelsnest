@@ -58,7 +58,7 @@ const MODELS: ModelDoc[] = [
     description: "High-performance European LLM with exceptional multilingual and code capabilities.",
     features: ["Multilingual", "Code Gen", "Reasoning", "Efficient"],
     pricing: { input: "0.0012", output: "0.0036", unit: "1K tokens" } },
-  { slug: "streamai-pro",   name: "StreamAI Pro",   provider: "Modelslab", category: "livestreaming", badge: "Exclusive",
+  { slug: "streamai-pro",   name: "StreamAI Pro",   provider: "Modelsnest", category: "livestreaming", badge: "Exclusive",
     description: "Real-time AI processing built for live streaming — moderation, engagement and analytics.",
     features: ["Real-time", "Moderation", "Analytics", "Live Chat"],
     pricing: { input: "0.020", output: "0.000", unit: "minute" } },
@@ -154,14 +154,14 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
                   <BookOpen size={18} style={{ color: "#fff" }} />
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-primary)" }}>
-                  Modelslab API Docs
+                  Modelsnest API Docs
                 </span>
               </div>
               <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.04em", color: text, lineHeight: 1, marginBottom: 10 }}>
                 Model Reference
               </h1>
               <p style={{ fontSize: 15, color: subtext, maxWidth: 480, lineHeight: 1.6 }}>
-                Complete integration guides for every AI model on Modelslab. Pick a model, read the docs, ship fast.
+                Complete integration guides for every AI model on Modelsnest. Pick a model, read the docs, ship fast.
               </p>
             </div>
 

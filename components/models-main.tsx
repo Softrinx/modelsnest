@@ -50,13 +50,13 @@ const MODELS: Model[] = [
   { id:"9",  name:"Mistral Large",    provider:"Mistral",    category:"llm",            status:"active",      performance:91, lastUsed:"6 hr ago",    slug:"mistral-large",    hasDocumentation:true,  isFavorite:false,
     description:"High-performance European LLM with exceptional multilingual and code capabilities.",
     features:["Multilingual","Code Gen","Reasoning","Efficient"] },
-  { id:"10", name:"StreamAI Pro",     provider:"Modelslab",  category:"livestreaming",  status:"active",      performance:96, lastUsed:"1 min ago",   slug:"streamai-pro",     hasDocumentation:true,  isFavorite:true,
+  { id:"10", name:"StreamAI Pro",     provider:"Modelsnest",  category:"livestreaming",  status:"active",      performance:96, lastUsed:"1 min ago",   slug:"streamai-pro",     hasDocumentation:true,  isFavorite:true,
     description:"Real-time AI processing for live streaming — moderation, engagement and analytics.",
     features:["Real-time","Moderation","Analytics","Live Chat"] },
-  { id:"11", name:"LiveChat AI",      provider:"Modelslab",  category:"livestreaming",  status:"inactive",    performance:85, lastUsed:"1 week ago",  slug:"livechat-ai",      hasDocumentation:true,  isFavorite:false,
+  { id:"11", name:"LiveChat AI",      provider:"Modelsnest",  category:"livestreaming",  status:"inactive",    performance:85, lastUsed:"1 week ago",  slug:"livechat-ai",      hasDocumentation:true,  isFavorite:false,
     description:"AI-powered live chat moderation with spam detection and sentiment analysis.",
     features:["Chat Mod","Spam Detection","Sentiment","Auto-Replies"] },
-  { id:"12", name:"Neural Vision Pro",provider:"Modelslab",  category:"video",          status:"inactive",    performance:78, lastUsed:"2 weeks ago", slug:"neural-vision-pro",hasDocumentation:false, isFavorite:false,
+  { id:"12", name:"Neural Vision Pro",provider:"Modelsnest",  category:"video",          status:"inactive",    performance:78, lastUsed:"2 weeks ago", slug:"neural-vision-pro",hasDocumentation:false, isFavorite:false,
     description:"Advanced computer vision for image recognition and scene understanding.",
     features:["Object Detection","Classification","Facial Rec","Scene"] },
 ]
@@ -136,7 +136,7 @@ export function ModelsMain({ user }: ModelsMainProps) {
                   <Zap size={16} style={{ color:"#fff" }} />
                 </div>
                 <span style={{ fontSize:12, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", color:"var(--color-primary)" }}>
-                  Modelslab
+                  Modelsnest
                 </span>
               </div>
               <h1 style={{ fontSize:32, fontWeight:900, letterSpacing:"-0.04em", color:text, lineHeight:1, marginBottom:8 }}>

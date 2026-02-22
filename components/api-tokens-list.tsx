@@ -1,8 +1,9 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Eye, EyeOff, Copy, RotateCcw, Edit, Trash2, Check } from "lucide-react"
 import { useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { useTheme } from "@/contexts/themeContext"
+import { Eye, EyeOff, Copy, RotateCcw, Edit, Trash2, Check, ShieldCheck, ShieldOff } from "lucide-react"
 import { maskToken, formatDate, copyToClipboard } from "@/lib/api-utils"
 import { regenerateToken, deleteToken } from "@/app/actions/api-tokens"
 import { TokenActionDialog } from "@/components/token-action-dialog"
@@ -17,156 +18,208 @@ interface Token {
   is_active: boolean
 }
 
-interface ApiTokensListProps {
-  tokens: Token[]
+interface ApiTokensListProps { tokens: Token[] }
+
+function IconBtn({
+  onClick, title, disabled, spin, danger, children
+}: {
+  onClick?: () => void; title: string; disabled?: boolean; spin?: boolean; danger?: boolean; children: React.ReactNode
+}) {
+  const { isDark } = useTheme()
+  const [hov, setHov] = useState(false)
+  const border  = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)"
+  const muted   = isDark ? "#52525b" : "#a1a1aa"
+  const hoverBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)"
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: 32, height: 32, border: `1px solid ${hov && !disabled ? (danger ? "#ef4444" : "var(--color-primary)") : border}`,
+        background: hov && !disabled ? hoverBg : "transparent",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1,
+        color: hov && !disabled ? (danger ? "#ef4444" : "var(--color-primary)") : muted,
+        transition: "all 0.15s", flexShrink: 0,
+      }}
+    >
+      <motion.div animate={spin ? { rotate: 360 } : { rotate: 0 }} transition={{ repeat: spin ? Infinity : 0, duration: 0.9, ease: "linear" }}>
+        {children}
+      </motion.div>
+    </button>
+  )
 }
 
 export function ApiTokensList({ tokens }: ApiTokensListProps) {
-  const [visibleTokens, setVisibleTokens] = useState<Set<number>>(new Set())
-  const [copiedTokens, setCopiedTokens] = useState<Set<number>>(new Set())
-  const [regeneratingTokens, setRegeneratingTokens] = useState<Set<number>>(new Set())
+  const { isDark } = useTheme()
+  const [visible,      setVisible]      = useState<Set<number>>(new Set())
+  const [copied,       setCopied]        = useState<Set<number>>(new Set())
+  const [regenerating, setRegenerating]  = useState<Set<number>>(new Set())
+  const [hovered,      setHovered]       = useState<number | null>(null)
 
-  const toggleTokenVisibility = (tokenId: number) => {
-    const newVisible = new Set(visibleTokens)
-    if (newVisible.has(tokenId)) {
-      newVisible.delete(tokenId)
-    } else {
-      newVisible.add(tokenId)
-    }
-    setVisibleTokens(newVisible)
+  const bg      = isDark ? "#111114" : "#ffffff"
+  const surface = isDark ? "#0f0f12" : "#f8f8f6"
+  const border  = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)"
+  const text    = isDark ? "#f4f4f5" : "#09090b"
+  const muted   = isDark ? "#52525b" : "#a1a1aa"
+  const subtext = isDark ? "#71717a" : "#71717a"
+
+  const toggleVisible = (id: number) => {
+    setVisible(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
-  const handleCopy = async (tokenPrefix: string, tokenId: number) => {
+  const handleCopy = async (prefix: string, id: number) => {
     try {
-      await copyToClipboard(tokenPrefix)
-      const newCopied = new Set(copiedTokens)
-      newCopied.add(tokenId)
-      setCopiedTokens(newCopied)
-      setTimeout(() => {
-        setCopiedTokens((prev) => {
-          const updated = new Set(prev)
-          updated.delete(tokenId)
-          return updated
-        })
-      }, 2000)
-    } catch (error) {
-      console.error("Failed to copy:", error)
-    }
+      await copyToClipboard(prefix)
+      setCopied(s => new Set(s).add(id))
+      setTimeout(() => setCopied(s => { const n = new Set(s); n.delete(id); return n }), 2000)
+    } catch (e) { console.error(e) }
   }
 
-  const handleRegenerate = async (tokenId: number) => {
-    setRegeneratingTokens((prev) => new Set(prev).add(tokenId))
+  const handleRegenerate = async (id: number) => {
+    setRegenerating(s => new Set(s).add(id))
     try {
-      const formData = new FormData()
-      formData.append("tokenId", String(tokenId))
-      const result = await regenerateToken(formData)
-      if (result.success) {
-        // Show the new token temporarily
-        const newToken = "token" in result ? result.token : ""
-        alert(`New token generated: ${newToken}\n\nPlease copy it now, you won't see it again!`)
+      const fd = new FormData(); fd.append("tokenId", String(id))
+      const res = await regenerateToken(fd)
+      if (res.success) {
+        const tok = "token" in res ? res.token : ""
+        alert(`New token generated:\n${tok}\n\nCopy it now — you won't see it again.`)
       }
-    } catch (error) {
-      console.error("Failed to regenerate token:", error)
-      alert("Failed to regenerate token")
-    } finally {
-      setRegeneratingTokens((prev) => {
-        const updated = new Set(prev)
-        updated.delete(tokenId)
-        return updated
-      })
-    }
+    } catch (e) { console.error(e); alert("Failed to regenerate token") }
+    finally { setRegenerating(s => { const n = new Set(s); n.delete(id); return n }) }
   }
 
-  const handleDelete = async (tokenId: number) => {
-    if (confirm("Are you sure you want to delete this token? This action cannot be undone.")) {
-      try {
-        const formData = new FormData()
-        formData.append("tokenId", String(tokenId))
-        await deleteToken(formData)
-      } catch (error) {
-        console.error("Failed to delete token:", error)
-        alert("Failed to delete token")
-      }
-    }
+  const handleDelete = async (id: number) => {
+    if (!confirm("Delete this token? This cannot be undone.")) return
+    try {
+      const fd = new FormData(); fd.append("tokenId", String(id))
+      await deleteToken(fd)
+    } catch (e) { console.error(e); alert("Failed to delete token") }
   }
 
   return (
-    <div className="space-y-3">
-      {tokens.map((token) => (
-        <div
-          key={token.id}
-          className="flex items-center justify-between p-4 bg-[#202126] border border-[#2D2D32] rounded-lg hover:border-[#8C5CF7]/30 transition-all duration-200"
-        >
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="font-mono text-sm text-[#E0E0E0]">
-                {visibleTokens.has(token.id) ? token.token_prefix : maskToken(token.token_prefix)}
-              </span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 1, background: border }}>
+      {/* Column header */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "1fr auto auto auto",
+        padding: "9px 16px", background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+        gap: 12,
+      }}>
+        {["Token", "Status", "Created", "Actions"].map(h => (
+          <span key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: muted }}>{h}</span>
+        ))}
+      </div>
+
+      {tokens.map((token, i) => {
+        const isVis   = visible.has(token.id)
+        const isCopied= copied.has(token.id)
+        const isRegen = regenerating.has(token.id)
+        const isHov   = hovered === token.id
+
+        return (
+          <motion.div key={token.id}
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.2, delay: i * 0.04 }}
+            onMouseEnter={() => setHovered(token.id)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              display: "grid", gridTemplateColumns: "1fr auto auto auto",
+              alignItems: "center", gap: 12, padding: "14px 16px",
+              background: isHov ? (isDark ? "#13131a" : "#fafaf9") : bg,
+              borderLeft: `2px solid ${isHov ? "var(--color-primary)" : "transparent"}`,
+              transition: "all 0.15s",
+            }}
+          >
+            {/* Token value */}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                {/* Active indicator */}
+                <div style={{
+                  width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                  background: token.is_active ? "#10b981" : muted,
+                  boxShadow: token.is_active ? "0 0 6px #10b98166" : "none",
+                }} />
+                <span style={{
+                  fontFamily: "monospace", fontSize: 13, color: text, letterSpacing: "0.02em",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>
+                  {isVis ? token.token_prefix : maskToken(token.token_prefix)}
+                </span>
+                {token.name && (
+                  <span style={{
+                    fontSize: 10, padding: "2px 7px", fontWeight: 600,
+                    background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+                    color: muted,
+                  }}>{token.name}</span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: subtext, paddingLeft: 17 }}>
+                Created {formatDate(token.created_at)}
+                {token.last_used_at && ` · Last used ${formatDate(token.last_used_at)}`}
+                {token.expires_at && ` · Expires ${formatDate(token.expires_at)}`}
+              </div>
             </div>
-            <div className="text-xs text-[#A0A0A8]">
-              Created {formatDate(token.created_at)}
-              {token.last_used_at && ` • Last used ${formatDate(token.last_used_at)}`}
+
+            {/* Status badge */}
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: "3px 9px", letterSpacing: "0.06em", textTransform: "uppercase",
+              background: token.is_active ? "rgba(16,185,129,0.1)" : "rgba(113,113,122,0.1)",
+              color: token.is_active ? "#10b981" : muted,
+            }}>
+              {token.is_active ? "Active" : "Inactive"}
+            </span>
+
+            {/* Created date */}
+            <span style={{ fontSize: 12, fontFamily: "monospace", color: subtext, whiteSpace: "nowrap" }}>
+              {formatDate(token.created_at)}
+            </span>
+
+            {/* Actions */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <IconBtn title={isVis ? "Hide token" : "Show token"} onClick={() => toggleVisible(token.id)}>
+                {isVis ? <EyeOff size={13} /> : <Eye size={13} />}
+              </IconBtn>
+
+              <IconBtn title="Copy token" onClick={() => handleCopy(token.token_prefix, token.id)}>
+                <AnimatePresence mode="wait" initial={false}>
+                  {isCopied
+                    ? <motion.div key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                        <Check size={13} style={{ color: "#10b981" }} />
+                      </motion.div>
+                    : <motion.div key="copy" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                        <Copy size={13} />
+                      </motion.div>
+                  }
+                </AnimatePresence>
+              </IconBtn>
+
+              <IconBtn title="Regenerate token" onClick={() => handleRegenerate(token.id)} disabled={isRegen} spin={isRegen}>
+                <RotateCcw size={13} />
+              </IconBtn>
+
+              <TokenActionDialog
+                token={token}
+                trigger={
+                  <div>
+                    <IconBtn title="Edit token">
+                      <Edit size={13} />
+                    </IconBtn>
+                  </div>
+                }
+              />
+
+              <IconBtn title="Delete token" onClick={() => handleDelete(token.id)} danger>
+                <Trash2 size={13} />
+              </IconBtn>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* View/Hide Token */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => toggleTokenVisibility(token.id)}
-              className="text-[#A0A0A8] hover:text-white hover:bg-[#2D2D32]"
-              title={visibleTokens.has(token.id) ? "Hide token" : "Show token"}
-            >
-              {visibleTokens.has(token.id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </Button>
-
-            {/* Copy Token */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleCopy(token.token_prefix, token.id)}
-              className="text-[#A0A0A8] hover:text-white hover:bg-[#2D2D32]"
-              title="Copy token"
-            >
-              {copiedTokens.has(token.id) ? <Check className="w-4 h-4 text-[#00ff88]" /> : <Copy className="w-4 h-4" />}
-            </Button>
-
-            {/* Regenerate Token */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleRegenerate(token.id)}
-              disabled={regeneratingTokens.has(token.id)}
-              className="text-[#A0A0A8] hover:text-white hover:bg-[#2D2D32]"
-              title="Regenerate token"
-            >
-              <RotateCcw className={`w-4 h-4 ${regeneratingTokens.has(token.id) ? "animate-spin" : ""}`} />
-            </Button>
-
-            {/* Edit Token */}
-            <TokenActionDialog
-              token={token}
-              trigger={
-                <Button variant="ghost" size="sm" className="text-[#A0A0A8] hover:text-white hover:bg-[#2D2D32]" title="Edit token">
-                  <Edit className="w-4 h-4" />
-                </Button>
-              }
-            />
-
-            {/* Delete Token */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDelete(token.id)}
-              className="text-[#A0A0A8] hover:text-[#EF4444] hover:bg-[#2D2D32]"
-              title="Delete token"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      ))}
+          </motion.div>
+        )
+      })}
     </div>
   )
 }
