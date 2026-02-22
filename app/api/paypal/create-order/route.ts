@@ -73,9 +73,7 @@ export async function POST(request: NextRequest) {
     console.log('PayPal order created:', order)
 
     if (order.result.status === 'CREATED') {
-      // For now, skip storing the transaction in database since the table doesn't exist
-      // TODO: Re-enable this when the database tables are properly set up
-      console.log('PayPal order created successfully, skipping database storage for now')
+      console.log('PayPal order created successfully')
       
       return NextResponse.json({
         success: true,

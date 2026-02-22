@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const token = searchParams.get('token') // PayPal order ID
-    const PayerID = searchParams.get('PayerID')
 
     if (!token) {
       return NextResponse.redirect(`${getAppUrl(request)}/dashboard/billing?error=missing_token`)
@@ -38,7 +37,18 @@ export async function GET(request: NextRequest) {
       
       try {
         // Get the payment amount from PayPal
-        const amount = parseFloat(capture.result.purchase_units[0].amount.value)
+        const amount = Number.parseFloat(
+          String(
+            capture.result.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value
+              ?? capture.result.purchase_units?.[0]?.amount?.value
+              ?? 0
+          )
+        )
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+          console.error('Invalid captured amount from PayPal return flow')
+          return NextResponse.redirect(`${getAppUrl(request)}/dashboard/billing?error=invalid_amount`)
+        }
         
         // Create a FormData object to call createTopUp
         const formData = new FormData()
@@ -54,9 +64,11 @@ export async function GET(request: NextRequest) {
           console.log('User credits updated successfully:', topUpResult.message)
         } else {
           console.error('Failed to update user credits:', topUpResult.error)
+          return NextResponse.redirect(`${getAppUrl(request)}/dashboard/billing?error=topup_failed`)
         }
       } catch (topUpError) {
         console.error('Error updating user credits:', topUpError)
+        return NextResponse.redirect(`${getAppUrl(request)}/dashboard/billing?error=topup_failed`)
       }
 
       // Redirect back to billing using a canonical base URL (avoid localhost in production)

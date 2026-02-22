@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createPayPalClient, isPayPalConfigured } from '@/lib/paypal-legacy'
 import { getCurrentUser } from '@/lib/auth'
+import { createTopUp } from '@/app/actions/billing'
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,65 +43,47 @@ export async function POST(request: NextRequest) {
     const capture = await paypalClient.execute(captureRequest)
 
     if (capture.result.status === 'COMPLETED') {
-      // TODO: Re-enable database operations when tables are properly set up
-      console.log('Payment captured successfully, skipping database operations for now')
-      
-      /*
-      // Update transaction status
-      await sql`
-        UPDATE credit_transactions 
-        SET 
-          status = 'completed',
-          reference_id = ${orderId},
-          metadata = metadata || ${JSON.stringify({
-            paypalCaptureId: orderId,
-            paypalCaptureStatus: capture.result.status,
-            captureTimestamp: new Date().toISOString()
-          })}
-        WHERE reference_id = ${orderId} AND status = 'pending'
-      `
+      const amount = Number.parseFloat(
+        String(
+          capture.result.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value
+            ?? capture.result.purchase_units?.[0]?.amount?.value
+            ?? 0
+        )
+      )
 
-      // Add credits to user account
-      const amount = parseFloat(capture.result.purchase_units[0].payments.captures[0].amount.value)
-      await sql`
-        UPDATE user_credits 
-        SET 
-          balance = balance + ${amount},
-          total_topped_up = total_topped_up + ${amount},
-          updated_at = NOW()
-        WHERE user_id = ${user.id}
-      `
-      */
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return NextResponse.json(
+          { error: 'Invalid captured amount from PayPal' },
+          { status: 500 }
+        )
+      }
+
+      const formData = new FormData()
+      formData.append('amount', amount.toString())
+      formData.append('paymentMethod', 'paypal')
+      formData.append('paypalOrderId', orderId)
+      formData.append('paypalCaptureId', capture.result.id)
+
+      const topUpResult = await createTopUp(formData)
+
+      if (!topUpResult.success) {
+        return NextResponse.json(
+          { error: topUpResult.error || 'Failed to record PayPal top-up' },
+          { status: 500 }
+        )
+      }
 
       return NextResponse.json({
         success: true,
-        message: 'Payment captured successfully',
+        message: topUpResult.message || 'Payment captured successfully',
         data: {
           orderId,
           status: capture.result.status,
-          captureId: orderId,
-          amount: capture.result.purchase_units[0].payments.captures[0].amount.value
+          captureId: capture.result.id,
+          amount
         }
       })
     } else {
-      // TODO: Re-enable database operations when tables are properly set up
-      console.log('Payment capture failed, skipping database operations for now')
-      
-      /*
-      // Update transaction status to failed
-      await sql`
-        UPDATE credit_transactions 
-        SET 
-          status = 'failed',
-          metadata = metadata || ${JSON.stringify({
-            paypalCaptureId: orderId,
-            paypalCaptureStatus: capture.result.status,
-            failureTimestamp: new Date().toISOString()
-          })}
-        WHERE reference_id = ${orderId} AND status = 'pending'
-      `
-      */
-
       return NextResponse.json(
         { error: 'Payment capture failed' },
         { status: 500 }

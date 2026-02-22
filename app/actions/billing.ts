@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/server"
 
 export async function getBillingInfo() {
   try {
@@ -137,6 +138,7 @@ export async function getUsageAnalytics(days: number = 30) {
 export async function createTopUp(formData: FormData) {
   try {
     const supabase = await createClient()
+    const adminSupabase = await createAdminClient()
     const { data: { user }, error } = await supabase.auth.getUser()
 
     if (error || !user) {
@@ -144,19 +146,90 @@ export async function createTopUp(formData: FormData) {
     }
 
     const amount = Number(formData.get("amount"))
+    const paymentMethod = String(formData.get("paymentMethod") || "manual").toLowerCase()
+    const paypalOrderId = formData.get("paypalOrderId") as string | null
+    const paypalCaptureId = formData.get("paypalCaptureId") as string | null
+    const coinbaseChargeId = formData.get("coinbaseChargeId") as string | null
+    const referenceId = paypalOrderId || paypalCaptureId || coinbaseChargeId || null
 
     if (!amount || amount <= 0) {
       return { success: false, error: "Invalid amount" }
     }
 
-    // Return success with dummy transaction data
+    if (referenceId) {
+      const { data: existingTopUp, error: existingTopUpError } = await adminSupabase
+        .from("credit_transactions")
+        .select("id, amount, status, created_at")
+        .eq("user_id", user.id)
+        .eq("type", "topup")
+        .eq("reference_id", referenceId)
+        .eq("status", "completed")
+        .maybeSingle()
+
+      if (existingTopUpError) {
+        console.error("Error checking existing top-up transaction:", existingTopUpError)
+        return { success: false, error: "Failed to validate payment status" }
+      }
+
+      if (existingTopUp) {
+        return {
+          success: true,
+          message: "Payment already processed",
+          data: {
+            id: existingTopUp.id,
+            amount: Number.parseFloat(String(existingTopUp.amount ?? amount)),
+            created_at: existingTopUp.created_at,
+          },
+        }
+      }
+    }
+
+    const { error: ensureCreditsError } = await adminSupabase
+      .from("user_credits")
+      .upsert({ user_id: user.id }, { onConflict: "user_id", ignoreDuplicates: true })
+
+    if (ensureCreditsError) {
+      console.error("Error initializing user credits:", ensureCreditsError)
+      return { success: false, error: "Failed to initialize user credits" }
+    }
+
+    const methodLabel = paymentMethod === "paypal"
+      ? "PayPal"
+      : paymentMethod === "coinbase"
+        ? "Coinbase"
+        : "Manual"
+
+    const { data: insertedTopUp, error: insertError } = await adminSupabase
+      .from("credit_transactions")
+      .insert({
+        user_id: user.id,
+        type: "topup",
+        amount,
+        description: `${methodLabel} top-up`,
+        reference_id: referenceId,
+        status: "completed",
+        metadata: {
+          source: paymentMethod,
+          paypalOrderId,
+          paypalCaptureId,
+          coinbaseChargeId,
+        },
+      })
+      .select("id, amount, created_at")
+      .single()
+
+    if (insertError) {
+      console.error("Error creating top-up transaction:", insertError)
+      return { success: false, error: "Failed to record top-up" }
+    }
+
     return {
       success: true,
       message: `Successfully added $${amount} to your account`,
       data: {
-        id: `tx_${Date.now()}`,
-        amount,
-        created_at: new Date().toISOString(),
+        id: insertedTopUp.id,
+        amount: Number.parseFloat(String(insertedTopUp.amount ?? amount)),
+        created_at: insertedTopUp.created_at,
       },
     }
   } catch (error) {
