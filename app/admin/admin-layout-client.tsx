@@ -1,29 +1,30 @@
 "use client"
 
-import { useState } from "react"
-import { AdminSidebar } from "@/components/admin-sidebar"
+import { AdminLayoutController } from "@/components/admin-layout-controller"
 
-export function AdminLayoutClient({ 
-  children, 
-  user 
-}: { 
+interface AdminLayoutClientProps {
   children: React.ReactNode
-  user: any 
-}) {
-  const [isCollapsed, setIsCollapsed] = useState(true)
+  user: {
+    id: string
+    email?: string
+    user_metadata?: {
+      name?: string
+      full_name?: string
+    }
+  }
+}
+
+export function AdminLayoutClient({ children, user }: AdminLayoutClientProps) {
+  // Transform user object to match AdminSidebar expectations
+  const adminUser = {
+    name: user.user_metadata?.name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Admin",
+    email: user.email || "",
+    role: "Administrator"
+  }
 
   return (
-    <div className="flex min-h-screen bg-[#111113]">
-      <AdminSidebar user={user} onSidebarToggle={setIsCollapsed} />
-      <div 
-        className={`flex-1 transition-all duration-300 ${
-          isCollapsed ? "pl-[70px]" : "pl-[250px]"
-        }`}
-      >
-        <main className="p-8">
-          {children}
-        </main>
-      </div>
-    </div>
+    <AdminLayoutController user={adminUser}>
+      {children}
+    </AdminLayoutController>
   )
 }

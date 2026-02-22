@@ -1,148 +1,540 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import {
-  ChevronLeft,
-  User,
-  Home,
-  Users,
-  LogOut,
-  LayoutDashboard,
-  Receipt
-} from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { createPortal } from "react-dom"
+import { useTheme } from "@/contexts/themeContext"
 import { ModelsnestLogo, ModelsnestLogoCompact } from "@/components/Modelsnest-logo"
+import {
+  LayoutDashboard, Users, Receipt, DollarSign, X, ChevronRight,
+  Menu, Sun, Moon, User, Home, Settings, Shield, Activity
+} from "lucide-react"
 
-interface AdminSidebarProps {
+// ─── types ────────────────────────────────────────────────────────────────────
+interface Props {
   user: { name: string; email: string; role: string }
-  onSidebarToggle?: (isCollapsed: boolean) => void
+  onSidebarToggle?: (c: boolean) => void
 }
 
-export function AdminSidebar({ user, onSidebarToggle }: AdminSidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(true)
-  const pathname = usePathname()
+// ─── nav config ───────────────────────────────────────────────────────────────
+const NAV_MAIN = [
+  { icon: LayoutDashboard, label: "Overview",     sub: "Admin dashboard",  href: "/admin",              color: "#6366f1" },
+  { icon: Users,           label: "Users",        sub: "User management",  href: "/admin/users",        color: "#8b5cf6" },
+  { icon: Receipt,         label: "Invoices",     sub: "Billing records",  href: "/admin/invoices",     color: "#06b6d4" },
+  { icon: DollarSign,      label: "Transactions", sub: "Payment history",  href: "/admin/transactions", color: "#10b981" },
+]
+
+const NAV_TOOLS = [
+  { icon: Activity, label: "Analytics",  sub: "System metrics",  href: "/admin/analytics", color: "#f59e0b" },
+  { icon: Settings, label: "Settings",   sub: "Configuration",   href: "/admin/settings",  color: "#a1a1aa" },
+]
+
+const ALL_NAV = [...NAV_MAIN, ...NAV_TOOLS]
+
+// ─── Portal tooltip ───────────────────────────────────────────────────────────
+function TooltipPortal({
+  label, sub, color, anchorRef, visible,
+}: {
+  label: string; sub: string; color: string
+  anchorRef: React.RefObject<HTMLDivElement | null>; visible: boolean
+}) {
+  const { isDark } = useTheme()
+  const [pos, setPos] = useState({ top: 0 })
 
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setIsCollapsed(true)
-      } else {
-        setIsCollapsed(false)
-      }
+    if (visible && anchorRef.current) {
+      const r = anchorRef.current.getBoundingClientRect()
+      setPos({ top: r.top + r.height / 2 })
     }
-    handleResize()
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [])
+  }, [visible])
 
-  useEffect(() => {
-    onSidebarToggle?.(isCollapsed)
-  }, [isCollapsed, onSidebarToggle])
+  if (typeof document === "undefined") return null
 
-  const handleToggle = () => {
-    setIsCollapsed(!isCollapsed)
-  }
+  return createPortal(
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, x: -10, scale: 0.9 }}
+          animate={{ opacity: 1, x: 0,   scale: 1 }}
+          exit={{   opacity: 0, x: -6,   scale: 0.93 }}
+          transition={{ duration: 0.16, ease: [0.25, 0.25, 0, 1] }}
+          style={{
+            position: "fixed",
+            top: pos.top,
+            left: 84,
+            transform: "translateY(-50%)",
+            zIndex: 99999,
+            pointerEvents: "none",
+          }}
+        >
+          {/* Arrow */}
+          <div style={{
+            position: "absolute", right: "100%", top: "50%",
+            transform: "translateY(-50%)",
+            borderTop: "6px solid transparent",
+            borderBottom: "6px solid transparent",
+            borderRight: `7px solid ${isDark ? "#1c1c1f" : "#ffffff"}`,
+          }} />
+          <div style={{
+            background:   isDark ? "#1c1c1f" : "#ffffff",
+            border:       `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+            boxShadow:    isDark
+              ? "0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)"
+              : "0 12px 40px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.04)",
+            borderRadius: 10,
+            padding:      "10px 14px",
+            minWidth:     140,
+          }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
+              <div style={{ width:6, height:6, borderRadius:"50%", background: color, boxShadow:`0 0 6px ${color}` }} />
+              <span style={{ fontSize:12, fontWeight:700, color: isDark?"#f4f4f5":"#09090b" }}>{label}</span>
+            </div>
+            <span style={{ fontSize:11, color: isDark?"#71717a":"#a1a1aa", paddingLeft:14 }}>{sub}</span>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body
+  )
+}
 
-  const mainItems = [
-    {
-      icon: LayoutDashboard,
-      label: "Overview",
-      href: "/admin",
-      active: pathname === "/admin",
-    },
-    {
-      icon: Users,
-      label: "Users",
-      href: "/admin/users",
-      active: pathname === "/admin/users",
-    },
-    {
-      icon: Receipt,
-      label: "Invoices & Receipts",
-      href: "/admin/invoices",
-      active: pathname.startsWith("/admin/invoices"),
-    },
-     {
-      icon: Receipt,
-      label: "Transactions",
-      href: "/admin/transactions",
-      active: pathname.startsWith("/admin/transactions"),
-    }
-  ]
+// ─── Single nav item ──────────────────────────────────────────────────────────
+function NavItem({
+  item, collapsed, active,
+}: {
+  item: typeof ALL_NAV[0]; collapsed: boolean; active: boolean
+}) {
+  const { isDark } = useTheme()
+  const [hovered, setHovered] = useState(false)
+  const anchorRef = useRef<HTMLDivElement>(null)
+
+  const showTip = collapsed && hovered
 
   return (
-    <div 
-      className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-[#1a1b1f] to-[#111113] border-r border-[#2d2d32] transition-all duration-300 ease-in-out z-50 ${
-        isCollapsed ? "w-[70px] rounded-r-2xl" : "w-[250px] rounded-r-2xl"
-      }`}
-    >
-      <div className="flex items-center justify-between p-4 border-b border-[#2d2d32]">
-        {!isCollapsed ? (
-          <div className="flex items-center gap-2">
-            <ModelsnestLogo size="md" variant="sidebar" />
-            <span className="text-xs font-bold text-[#8C5CF7] border border-[#8C5CF7]/30 bg-[#8C5CF7]/10 px-2 py-0.5 rounded">ADMIN</span>
-          </div>
-        ) : (
-          <ModelsnestLogoCompact />
+    <Link href={item.href} style={{ display: "block", textDecoration: "none" }}>
+      <div
+        ref={anchorRef}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: collapsed ? "0" : "8px 10px",
+          justifyContent: collapsed ? "center" : "flex-start",
+          borderRadius: 12,
+          cursor: "pointer",
+          position: "relative",
+          background: active
+            ? isDark
+              ? `color-mix(in srgb, ${item.color} 16%, transparent)`
+              : `color-mix(in srgb, ${item.color} 10%, transparent)`
+            : hovered
+              ? isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"
+              : "transparent",
+          transition: "background 0.15s ease",
+          height: collapsed ? 44 : "auto",
+          width: collapsed ? 44 : "auto",
+          margin: collapsed ? "0 auto" : "0",
+        }}
+      >
+        {/* Active left bar */}
+        {active && !collapsed && (
+          <motion.div
+            layoutId="admin-nav-active-bar"
+            style={{
+              position: "absolute",
+              left: 0,
+              top: "50%",
+              marginTop: -10,
+              width: 3, height: 20,
+              background: item.color,
+              borderRadius: "0 3px 3px 0",
+              boxShadow: `0 0 10px ${item.color}`,
+            }}
+            transition={{ type: "spring", stiffness: 500, damping: 35 }}
+          />
         )}
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleToggle}
-          className="p-2 text-[#d1d5db] hover:text-white hover:bg-[#2d2d32] rounded-lg transition-all duration-200"
+
+        {/* Icon box */}
+        <motion.div
+          animate={{
+            background: active
+              ? item.color
+              : isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+            boxShadow: active
+              ? `0 4px 16px ${item.color}55, 0 0 0 1px ${item.color}33`
+              : "none",
+          }}
+          transition={{ duration: 0.2 }}
+          style={{
+            width: 36, height: 36,
+            borderRadius: 10,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}
         >
-          <ChevronLeft className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? "rotate-180" : ""}`} />
-        </Button>
+          <item.icon
+            size={17}
+            strokeWidth={active ? 2.5 : 1.8}
+            style={{ color: active ? "#fff" : isDark ? "#a1a1aa" : "#71717a" }}
+          />
+        </motion.div>
+
+        {/* Label + sub */}
+        {!collapsed && (
+          <motion.div
+            initial={{ opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            style={{ display: "flex", flexDirection: "column", minWidth: 0 }}
+          >
+            <span style={{
+              fontSize: 13, fontWeight: 600, lineHeight: 1,
+              color: active ? item.color : isDark ? "#d4d4d8" : "#3f3f46",
+              whiteSpace: "nowrap",
+            }}>
+              {item.label}
+            </span>
+            <span style={{
+              fontSize: 11, marginTop: 3, lineHeight: 1,
+              color: isDark ? "#52525b" : "#a1a1aa",
+              whiteSpace: "nowrap",
+            }}>
+              {item.sub}
+            </span>
+          </motion.div>
+        )}
+
+        {/* Portal tooltip when collapsed */}
+        <TooltipPortal
+          label={item.label} sub={item.sub} color={item.color}
+          anchorRef={anchorRef} visible={showTip}
+        />
+      </div>
+    </Link>
+  )
+}
+
+// ─── Sidebar body ─────────────────────────────────────────────────────────────
+function SidebarBody({
+  collapsed, user, onClose,
+}: {
+  collapsed: boolean; user: Props["user"]
+  onClose?: () => void
+}) {
+  const { isDark, setMode } = useTheme()
+  const pathname = usePathname()
+
+  const bg     = isDark ? "#0d0d10" : "#ffffff"
+  const border = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)"
+  const muted  = isDark ? "#52525b" : "#a1a1aa"
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background: bg }}>
+
+      {/* ── Logo row ── */}
+      <div style={{
+        display:"flex", alignItems:"center", justifyContent: collapsed ? "center" : "flex-start",
+        padding: collapsed ? "18px 0" : "16px 12px",
+        borderBottom: `1px solid ${border}`, flexShrink: 0,
+        position: "relative",
+      }}>
+        {collapsed ? <ModelsnestLogoCompact /> : <ModelsnestLogo size="md" variant="sidebar" />}
+        
+        {onClose && (
+          <button onClick={onClose}
+            style={{ 
+              padding:6, borderRadius:8, background:"transparent", border:"none", cursor:"pointer", color: muted,
+              position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)"
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+          >
+            <X size={15} />
+          </button>
+        )}
       </div>
 
-      <div className="p-3">
-        <div className="space-y-1">
-          {mainItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#d1d5db] hover:text-white hover:bg-[#2d2d32] transition-all duration-200 group ${
-                item.active ? "bg-[#6d28d9] text-white" : ""
-              }`}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {!isCollapsed && (
-                <span className="font-medium truncate">{item.label}</span>
-              )}
-            </Link>
+      {/* ── Nav ── */}
+      <div style={{ flex:1, overflowY:"auto", padding: collapsed ? "16px 14px" : "16px 12px", display:"flex", flexDirection:"column", gap:24 }}>
+
+        {/* Main group */}
+        <div style={{ display:"flex", flexDirection:"column", gap: collapsed ? 8 : 4 }}>
+          {!collapsed && (
+            <span style={{ fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color: muted, opacity:0.7, padding:"0 10px", marginBottom:4 }}>
+              Main
+            </span>
+          )}
+          {NAV_MAIN.map(item => (
+            <NavItem key={item.href} item={item} collapsed={collapsed} active={pathname === item.href} />
+          ))}
+        </div>
+
+        {/* Divider */}
+        <div style={{ height:1, background: border, margin: collapsed ? "0 auto" : "0 10px", width: collapsed ? 28 : undefined }} />
+
+        {/* Tools group */}
+        <div style={{ display:"flex", flexDirection:"column", gap: collapsed ? 8 : 4 }}>
+          {!collapsed && (
+            <span style={{ fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color: muted, opacity:0.7, padding:"0 10px", marginBottom:4 }}>
+              Tools
+            </span>
+          )}
+          {NAV_TOOLS.map(item => (
+            <NavItem key={item.href} item={item} collapsed={collapsed} active={pathname === item.href} />
           ))}
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-[#2d2d32] bg-gradient-to-b from-transparent to-[#111113]">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-[#ef4444] to-[#dc2626] rounded-lg flex items-center justify-center flex-shrink-0">
-            <User className="w-4 h-4 text-white" />
+      {/* ── Theme toggle + User ── */}
+      <div style={{ padding:"12px", borderTop:`1px solid ${border}`, flexShrink:0, display:"flex", flexDirection:"column", gap:4 }}>
+
+        {/* Theme toggle */}
+        <button
+          onClick={() => setMode(isDark ? "light" : "dark")}
+          style={{
+            display:"flex", alignItems:"center",
+            gap: 10,
+            padding: collapsed ? "10px 0" : "9px 10px",
+            justifyContent: collapsed ? "center" : "flex-start",
+            borderRadius:10,
+            border:"none", cursor:"pointer",
+            background:"transparent",
+            width:"100%",
+            transition:"background 0.15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)"}
+          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+        >
+          <motion.div
+            animate={{
+              background: isDark ? "rgba(251,191,36,0.15)" : "rgba(99,102,241,0.12)",
+              boxShadow: isDark ? "0 0 12px rgba(251,191,36,0.25)" : "0 0 12px rgba(99,102,241,0.2)",
+            }}
+            style={{ width:36, height:36, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}
+          >
+            {isDark
+              ? <Sun  size={16} style={{ color:"#fbbf24" }} />
+              : <Moon size={16} style={{ color:"#6366f1" }} />}
+          </motion.div>
+          {!collapsed && (
+            <span style={{ fontSize:13, fontWeight:600, color: isDark?"#d4d4d8":"#3f3f46" }}>
+              {isDark ? "Light mode" : "Dark mode"}
+            </span>
+          )}
+        </button>
+
+        {/* User Dashboard Link */}
+        <Link href="/dashboard" style={{ display:"block", textDecoration:"none" }}>
+          <button
+            style={{
+              display:"flex", alignItems:"center",
+              gap: 10,
+              padding: collapsed ? "10px 0" : "9px 10px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              borderRadius:10,
+              border:"none", cursor:"pointer",
+              background:"transparent",
+              width:"100%",
+              transition:"background 0.15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)"}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+          >
+            <motion.div
+              animate={{
+                background: isDark ? "rgba(99,102,241,0.15)" : "rgba(99,102,241,0.12)",
+                boxShadow: isDark ? "0 0 12px rgba(99,102,241,0.25)" : "0 0 12px rgba(99,102,241,0.2)",
+              }}
+              style={{ width:36, height:36, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}
+            >
+              <Home size={16} style={{ color:"#6366f1" }} />
+            </motion.div>
+            {!collapsed && (
+              <span style={{ fontSize:13, fontWeight:600, color: isDark?"#d4d4d8":"#3f3f46" }}>
+                User Dashboard
+              </span>
+            )}
+          </button>
+        </Link>
+
+        {/* User info */}
+        <div style={{
+          display:"flex", alignItems:"center",
+          gap:10,
+          padding: collapsed ? "10px 0" : "9px 10px",
+          justifyContent: collapsed ? "center" : "flex-start",
+          borderRadius:10,
+          cursor:"pointer",
+          transition:"background 0.15s",
+        }}
+          onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)"}
+          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+        >
+          {/* Avatar with gradient + first letter */}
+          <div style={{
+            width:36, height:36, borderRadius:10, flexShrink:0,
+            background:"linear-gradient(135deg, #ef4444, #dc2626)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:14, fontWeight:900, color:"#fff",
+            boxShadow:"0 4px 12px rgba(239,68,68,0.4)",
+          }}>
+            {user.name?.charAt(0).toUpperCase() ?? <User size={14} />}
           </div>
-          {!isCollapsed && (
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-[#d1d5db] truncate">{user.name}</div>
-              <div className="text-xs text-[#9ca3af] truncate">{user.email}</div>
-            </div>
+          {!collapsed && (
+            <motion.div
+              initial={{ opacity:0, x:-4 }}
+              animate={{ opacity:1, x:0 }}
+              style={{ display:"flex", flexDirection:"column", minWidth:0 }}
+            >
+              <span style={{ fontSize:12, fontWeight:700, color: isDark?"#f4f4f5":"#09090b", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:140 }}>
+                {user.name}
+              </span>
+              <span style={{ fontSize:11, color: muted, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:140 }}>
+                {user.role}
+              </span>
+            </motion.div>
           )}
         </div>
-        
-        <Link href="/dashboard">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className={`w-full border-[#2d2d32] text-[#9ca3af] hover:text-white hover:bg-[#2d2d32] ${
-              isCollapsed ? "px-2" : ""
-            }`}
-          >
-            <Home className="w-4 h-4 flex-shrink-0" />
-            {!isCollapsed && <span className="ml-2">User Dashboard</span>}
-          </Button>
-        </Link>
       </div>
     </div>
+  )
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
+export function AdminSidebar({ user, onSidebarToggle }: Props) {
+  const { isDark } = useTheme()
+  const [collapsed, setCollapsed] = useState(false)
+  const [isMobile, setIsMobile]   = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const pathname = usePathname()
+
+  const W      = collapsed ? 72 : 256
+  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.09)"
+  const bg     = isDark ? "#0d0d10" : "#ffffff"
+
+  useEffect(() => {
+    const check = () => { const m = window.innerWidth < 768; setIsMobile(m); if (m) setCollapsed(true) }
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
+  useEffect(() => { onSidebarToggle?.(collapsed) }, [collapsed])
+  useEffect(() => { setDrawerOpen(false) }, [pathname])
+
+  return (
+    <>
+      {/* ── Mobile hamburger ── */}
+      {isMobile && (
+        <motion.button
+          whileTap={{ scale: 0.92 }}
+          onClick={() => setDrawerOpen(true)}
+          style={{
+            position:"fixed", top:16, left:16, zIndex:50,
+            width:40, height:40, borderRadius:12,
+            background: bg, border:`1px solid ${border}`,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            cursor:"pointer",
+            boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.5)" : "0 4px 20px rgba(0,0,0,0.1)",
+            color: isDark ? "#d4d4d8" : "#3f3f46",
+          }}
+        >
+          <Menu size={16} />
+        </motion.button>
+      )}
+
+      {/* ── Mobile overlay + slide-in drawer ── */}
+      <AnimatePresence>
+        {isMobile && drawerOpen && (
+          <>
+            <motion.div
+              key="overlay"
+              initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+              transition={{ duration:0.2 }}
+              onClick={() => setDrawerOpen(false)}
+              style={{ position:"fixed", inset:0, zIndex:60, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)" }}
+            />
+            <motion.div
+              key="drawer"
+              initial={{ x:"-100%" }} animate={{ x:0 }} exit={{ x:"-100%" }}
+              transition={{ duration:0.32, ease:[0.25,0.25,0,1] }}
+              style={{
+                position:"fixed", left:0, top:0, bottom:0, zIndex:70,
+                width:260,
+                background: bg,
+                borderRight:`1px solid ${border}`,
+                borderTopRightRadius:20,
+                borderBottomRightRadius:20,
+                overflow:"hidden",
+                boxShadow:"12px 0 48px rgba(0,0,0,0.4)",
+              }}
+            >
+              <SidebarBody collapsed={false} user={user} onClose={() => setDrawerOpen(false)} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Desktop sidebar ── */}
+      {!isMobile && (
+        <>
+          <motion.div
+            animate={{ width: W }}
+            transition={{ duration:0.28, ease:[0.25,0.25,0,1] }}
+            style={{
+              position:"fixed", left:0, top:0, bottom:0, zIndex:40,
+              borderTopRightRadius:20,
+              borderBottomRightRadius:20,
+              overflow:"visible",
+              boxShadow: isDark ? "8px 0 48px rgba(0,0,0,0.4)" : "8px 0 48px rgba(0,0,0,0.07)",
+            }}
+          >
+            {/* Inner clip */}
+            <div style={{
+              width:"100%", height:"100%",
+              background: bg,
+              border:`1px solid ${border}`,
+              borderTopRightRadius:20,
+              borderBottomRightRadius:20,
+              overflow:"hidden",
+            }}>
+              <SidebarBody collapsed={collapsed} user={user} />
+            </div>
+          </motion.div>
+
+          {/* ── Collapse button ── */}
+          <motion.div
+            animate={{ left: W - 13 }}
+            transition={{ duration:0.28, ease:[0.25,0.25,0,1] }}
+            style={{ position:"fixed", top:28, zIndex:50 }}
+          >
+            <motion.button
+              onClick={() => setCollapsed(c => !c)}
+              whileHover={{ scale:1.1 }}
+              whileTap={{ scale:0.92 }}
+              style={{
+                width:26, height:26,
+                borderRadius:"50%",
+                background: bg,
+                border:`2px solid #ef4444`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                cursor:"pointer",
+                boxShadow: `0 0 0 4px ${bg}, 0 4px 16px rgba(0,0,0,0.3), 0 0 12px rgba(239,68,68,0.4)`,
+                color:"#ef4444",
+              }}
+            >
+              <motion.div animate={{ rotate: collapsed ? 0 : 180 }} transition={{ duration:0.28 }}>
+                <ChevronRight size={13} strokeWidth={2.5} />
+              </motion.div>
+            </motion.button>
+          </motion.div>
+        </>
+      )}
+    </>
   )
 }
