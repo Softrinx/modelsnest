@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const { neon } = require('@neondatabase/serverless');
 
-// Load environment variables from .env file manually
 function loadEnvFile() {
   const envPaths = [
     path.join(__dirname, '..', '.env.local'),
@@ -148,67 +147,39 @@ function splitSqlStatements(sqlContent) {
   return statements;
 }
 
-// Load environment variables
-loadEnvFile();
+async function createBillingTables() {
+  loadEnvFile();
 
-// Check if DATABASE_URL is set
-if (!process.env.DATABASE_URL) {
-  console.error('Error: DATABASE_URL environment variable is not set');
-  process.exit(1);
-}
+  if (!process.env.DATABASE_URL) {
+    console.error('Error: DATABASE_URL environment variable is not set');
+    process.exit(1);
+  }
 
-const targetHost = new URL(process.env.DATABASE_URL).host;
-const sql = neon(process.env.DATABASE_URL);
+  const targetHost = new URL(process.env.DATABASE_URL).host;
+  const sql = neon(process.env.DATABASE_URL);
+  const filePath = path.join(__dirname, '004_create_billing_tables.sql');
 
-async function runMigrations() {
+  if (!fs.existsSync(filePath)) {
+    console.error('Error: 004_create_billing_tables.sql was not found');
+    process.exit(1);
+  }
+
   try {
-    console.log(`Target database host: ${targetHost}`);
-    console.log('Starting database migrations...');
-    
-    // Read and run migrations in order
-    const migrationFiles = [
-      '001_create_auth_tables.sql',
-      '002_create_api_tokens_table.sql',
-      '003_create_password_reset_table.sql',
-      '004_create_billing_tables.sql',
-      '005_add_role_column.sql',
-      '006_create_app_tables_for_supabase.sql'
-    ];
+    const sqlContent = fs.readFileSync(filePath, 'utf8');
+    const statements = splitSqlStatements(sqlContent);
 
-    for (const migrationFile of migrationFiles) {
-      const filePath = path.join(__dirname, migrationFile);
-      
-      if (fs.existsSync(filePath)) {
-        console.log(`Running migration: ${migrationFile}`);
-        const sqlContent = fs.readFileSync(filePath, 'utf8');
-        const statements = splitSqlStatements(sqlContent);
-        
-        for (const statement of statements) {
-          if (statement.trim()) {
-            try {
-              await sql.unsafe(statement);
-              console.log(`  ✓ Executed: ${statement.substring(0, 50)}...`);
-            } catch (error) {
-              // Ignore "already exists" errors
-              if (error.message.includes('already exists') || error.message.includes('duplicate key')) {
-                console.log(`  ⚠ Skipped (already exists): ${statement.substring(0, 50)}...`);
-              } else {
-                throw error;
-              }
-            }
-          }
-        }
-        console.log(`  ✓ Completed: ${migrationFile}`);
-      } else {
-        console.log(`⚠ Skipping: ${migrationFile} (file not found)`);
-      }
+    console.log(`Target database host: ${targetHost}`);
+    console.log(`Running billing migration (${statements.length} statements)...`);
+
+    for (const statement of statements) {
+      await sql.unsafe(statement);
     }
-    
-    console.log('All migrations completed successfully!');
+
+    console.log('Billing tables created successfully.');
   } catch (error) {
-    console.error('Migration failed:', error);
+    console.error('Failed to create billing tables:', error.message || error);
     process.exit(1);
   }
 }
 
-runMigrations();
+createBillingTables();

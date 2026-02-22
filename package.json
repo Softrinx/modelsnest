@@ -7,7 +7,8 @@
     "dev": "next dev",
     "lint": "eslint app components lib hooks contexts types middleware.ts",
     "start": "next start",
-    "migrate": "node scripts/run-migrations.js"
+    "migrate": "node scripts/run-migrations.js",
+    "migrate:billing": "node scripts/create-billing-tables.js"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",

@@ -111,7 +111,7 @@ ALTER TABLE password_reset_tokens ADD COLUMN IF NOT EXISTS created_at TIMESTAMP 
 
 -- Credits balance
 CREATE TABLE IF NOT EXISTS user_credits (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   balance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   total_spent DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -129,7 +129,7 @@ ALTER TABLE user_credits ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME
 
 -- Credit transactions
 CREATE TABLE IF NOT EXISTS credit_transactions (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   type VARCHAR(20) NOT NULL CHECK (type IN ('topup', 'usage', 'refund')),
   amount DECIMAL(10,2) NOT NULL,
@@ -150,7 +150,7 @@ ALTER TABLE credit_transactions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WI
 
 -- Usage logs
 CREATE TABLE IF NOT EXISTS usage_logs (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   service_type VARCHAR(50) NOT NULL,
   tokens_used INTEGER,
@@ -254,3 +254,24 @@ CREATE TRIGGER trigger_update_credits_balance
   AFTER INSERT ON credit_transactions
   FOR EACH ROW
   EXECUTE FUNCTION update_user_credits_balance();
+
+-- Initialize user credits on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user_credits()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.user_credits (user_id, balance, total_spent, total_topped_up, created_at, updated_at)
+  VALUES (NEW.id, 0.00, 0.00, 0.00, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  ON CONFLICT (user_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trigger_initialize_user_credits ON auth.users;
+CREATE TRIGGER trigger_initialize_user_credits
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user_credits();
