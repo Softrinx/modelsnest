@@ -16,8 +16,8 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Outsoor - Enterprise AI APIs Built for Scale',
-    template: '%s | Outsoor',
+    default: 'Modelsnest - Enterprise AI APIs Built for Scale',
+    template: '%s | Modelsnest',
   },
   description:
     'Production ready AI infrastructure with <200ms latency, 99.99% uptime, and transparent pricing. Built by developers, for developers. Ship AI features in minutes, not months.',
@@ -33,24 +33,24 @@ export const metadata: Metadata = {
     'Low Latency AI',
     'Scalable AI',
   ],
-  authors: [{ name: 'Outsoor Team' }],
-  creator: 'Outsoor',
-  publisher: 'Outsoor',
+  authors: [{ name: 'Modelsnest Team' }],
+  creator: 'Modelsnest',
+  publisher: 'Modelsnest',
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://outsoor.com'),
+  metadataBase: new URL('https://Modelsnest.com'),
   alternates: {
     canonical: '/',
   },
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://outsoor.com',
-    siteName: 'Outsoor',
-    title: 'Outsoor - Enterprise AI APIs Built for Scale',
+    url: 'https://Modelsnest.com',
+    siteName: 'Modelsnest',
+    title: 'Modelsnest - Enterprise AI APIs Built for Scale',
     description:
       'Production-ready AI infrastructure with <200ms latency, 99.99% uptime, and transparent pricing. Built by developers, for developers.',
     images: [
@@ -58,18 +58,18 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Outsoor - Enterprise AI APIs',
+        alt: 'Modelsnest - Enterprise AI APIs',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Outsoor - Enterprise AI APIs Built for Scale',
+    title: 'Modelsnest - Enterprise AI APIs Built for Scale',
     description:
       'Production-ready AI infrastructure with <200ms latency, 99.99% uptime, and transparent pricing.',
     images: ['/og-image.png'],
-    creator: '@outsoor',
-    site: '@outsoor',
+    creator: '@Modelsnest',
+    site: '@Modelsnest',
   },
   robots: {
     index: true,
