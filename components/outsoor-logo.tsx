@@ -40,8 +40,8 @@ export function OutsoorLogoCompact({ className }: { className?: string }) {
     <Image
       src={isDark ? "/logodark.png" : "/logolight.png"}
       alt="Outsoor"
-      width={28}
-      height={28}
+      width={38}
+      height={38}
       className={cn("object-contain", className)}
       priority
     />
