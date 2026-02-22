@@ -54,6 +54,22 @@ export function SignupForm() {
         setError(result.error.message)
         setIsLoading(false)
       } else {
+        const userId = result.data.user?.id
+        const hasSession = Boolean(result.data.session)
+
+        if (userId && hasSession) {
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .upsert({ id: userId }, { onConflict: "id" })
+
+          if (profileError) {
+            console.error("Profile creation error:", profileError)
+            setError("Account created, but profile setup failed. Please try signing in again.")
+            setIsLoading(false)
+            return
+          }
+        }
+
         console.log("Signup successful, redirecting...")
         setIsLoading(false)
         router.push("/dashboard")
