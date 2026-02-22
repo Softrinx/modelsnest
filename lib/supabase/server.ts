@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { getSupabaseEnv } from '@/lib/supabase/env'
 
@@ -38,7 +39,6 @@ export async function createClient() {
 
 // Admin client with service role key for admin operations
 export async function createAdminClient() {
-  const cookieStore = await cookies()
   const { url } = getSupabaseEnv()
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -48,27 +48,14 @@ export async function createAdminClient() {
     )
   }
 
-  return createServerClient(
+  return createSupabaseClient(
     url,
     serviceRoleKey,
     {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options)
-            })
-          } catch {
-            // Ignore cookie setting errors in server components
-          }
-        },
-      },
       auth: {
         autoRefreshToken: false,
-        persistSession: false
+        persistSession: false,
+        detectSessionInUrl: false,
       }
     }
   )
