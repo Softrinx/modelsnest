@@ -1,9 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "@/contexts/themeContext"
 import { useSidebar } from "@/components/dashboard-layout-controller"
+import { createClient } from "@/lib/supabase/client"
+import { getAuthUsersByEmails, getAuthUsersByIds } from "@/app/actions/team"
 import {
   Users, UserPlus, Mail, Crown, Shield, Eye, ArrowLeft,
   Copy, Check, Trash2, Search, X, Clock, Zap, Key, Lock,
@@ -13,12 +15,14 @@ import {
   BadgePlus,
 } from "lucide-react"
 import type { DashboardUser } from "@/types/dashboard-user"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 interface TeamPageProps { user: DashboardUser }
 
 type Role = "owner" | "admin" | "developer" | "viewer"
 type MemberStatus = "active" | "pending" | "suspended"
 type View = "list" | "create" | "detail"
+type TeamTier = "free" | "pro" | "enterprise"
 
 interface Member {
   id: string; name: string; email: string; role: Role
@@ -30,9 +34,20 @@ interface Invite {
 }
 interface Team {
   id: string; name: string; slug: string; description: string
-  plan: "free" | "pro" | "enterprise"; role: Role
+  plan: TeamTier; role: Role
   memberCount: number; avatarColor: string; createdAt: string
   members: Member[]; invites: Invite[]
+}
+
+interface PendingInvite {
+  id: string
+  teamId: string
+  teamName: string
+  teamSlug: string
+  tier: TeamTier
+  role: Role
+  sentAt: string
+  expiresAt: string
 }
 
 const ROLE_CFG: Record<Role, { label: string; color: string; bg: string; icon: any; perms: string[] }> = {
@@ -48,44 +63,42 @@ const PLAN_CFG = {
   enterprise: { label: "Enterprise", color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
 }
 
-const SEED_TEAMS: Team[] = [
-  {
-    id: "t1", name: "Acme AI", slug: "acme-ai",
-    description: "Core AI infrastructure team for Acme Corp products.",
-    plan: "pro", role: "owner", memberCount: 6, avatarColor: "#6366f1", createdAt: "Jan 2024",
-    members: [
-      { id:"1", name:"Alex Thornton", email:"alex@acme.io",   role:"owner",     status:"active",    joinedAt:"Jan 12, 2024", lastActive:"Just now",   avatarColor:"#6366f1", apiAccess:true  },
-      { id:"2", name:"Priya Nambiar", email:"priya@acme.io",  role:"admin",     status:"active",    joinedAt:"Feb 3, 2024",  lastActive:"2 hrs ago",  avatarColor:"#ec4899", apiAccess:true  },
-      { id:"3", name:"James Wu",      email:"james@acme.io",  role:"developer", status:"active",    joinedAt:"Mar 18, 2024", lastActive:"Yesterday",  avatarColor:"#10b981", apiAccess:true  },
-      { id:"4", name:"Sofia Reyes",   email:"sofia@acme.io",  role:"developer", status:"active",    joinedAt:"Apr 5, 2024",  lastActive:"3 days ago", avatarColor:"#f59e0b", apiAccess:false },
-      { id:"5", name:"Marcus Bell",   email:"marcus@acme.io", role:"viewer",    status:"active",    joinedAt:"May 22, 2024", lastActive:"1 week ago", avatarColor:"#06b6d4", apiAccess:false },
-      { id:"6", name:"Dana Kristoff", email:"dana@acme.io",   role:"developer", status:"suspended", joinedAt:"Jun 1, 2024",  lastActive:"2 wks ago",  avatarColor:"#8b5cf6", apiAccess:false },
-    ],
-    invites: [
-      { id:"i1", email:"noah@startup.com", role:"developer", sentAt:"2 days ago", expiresAt:"5 days" },
-      { id:"i2", email:"chen@agency.io",   role:"admin",     sentAt:"1 day ago",  expiresAt:"6 days" },
-    ],
-  },
-  {
-    id: "t2", name: "Side Project", slug: "side-project",
-    description: "Personal experiments and weekend builds.",
-    plan: "free", role: "owner", memberCount: 2, avatarColor: "#10b981", createdAt: "Mar 2024",
-    members: [
-      { id:"a1", name:"Alex Thornton", email:"alex@gmail.com", role:"owner",     status:"active", joinedAt:"Mar 1, 2024", lastActive:"Today",     avatarColor:"#6366f1", apiAccess:true  },
-      { id:"a2", name:"Sam Rivera",    email:"sam@gmail.com",  role:"developer", status:"active", joinedAt:"Mar 5, 2024", lastActive:"3 days ago", avatarColor:"#10b981", apiAccess:true  },
-    ],
-    invites: [],
-  },
-  {
-    id: "t3", name: "Freelance Client",  slug: "freelance",
-    description: "Client workspace — read-only access.",
-    plan: "pro", role: "viewer", memberCount: 9, avatarColor: "#ec4899", createdAt: "Nov 2023",
-    members: [
-      { id:"b1", name:"Alex Thornton", email:"alex@acme.io", role:"viewer", status:"active", joinedAt:"Nov 10, 2023", lastActive:"1 week ago", avatarColor:"#6366f1", apiAccess:false },
-    ],
-    invites: [],
-  },
-]
+const AVATAR_COLORS = ["#6366f1", "#10b981", "#ec4899", "#f59e0b", "#06b6d4", "#8b5cf6"]
+
+const slugify = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+
+const formatMonthYear = (value?: string) => {
+  if (!value) return "Unknown"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Unknown"
+  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+}
+
+const formatShortDate = (value?: string) => {
+  if (!value) return "Unknown"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Unknown"
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+const formatExpiry = (value?: string) => {
+  if (!value) return "Unknown"
+  const expiresAt = new Date(value)
+  if (Number.isNaN(expiresAt.getTime())) return "Unknown"
+  const diffMs = expiresAt.getTime() - Date.now()
+  if (diffMs <= 0) return "Expired"
+  const days = Math.ceil(diffMs / 86400000)
+  return days === 1 ? "1 day" : `${days} days`
+}
+
+const getAvatarColor = (seed: string) => {
+  let hash = 0
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 function Avatar({ name, color, size = 40 }: { name: string; color: string; size?: number }) {
@@ -209,7 +222,7 @@ function InviteModal({ onClose, onAdd, surface, border, text, muted, isDark }: {
             </div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: text, letterSpacing: "-0.03em" }}>Invite teammate</div>
-              <div style={{ fontSize: 12, color: muted }}>They'll get an email with a join link</div>
+              <div style={{ fontSize: 12, color: muted }}>They'll see the invite in their dashboard</div>
             </div>
           </div>
           <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: muted, padding: 4 }}>
@@ -272,10 +285,10 @@ function InviteModal({ onClose, onAdd, surface, border, text, muted, isDark }: {
 }
 
 // ─── Member Card ──────────────────────────────────────────────────────────────
-function MemberCard({ member, onRoleChange, onRemove, onToggleAccess, onToggleSuspend, isDark, card, border, text, muted, subtle }: {
+function MemberCard({ member, onRoleChange, onRemove, onToggleAccess, onToggleSuspend, canManage, isDark, card, border, text, muted, subtle }: {
   member: Member; onRoleChange: (id: string, r: Role) => void
   onRemove: (id: string) => void; onToggleAccess: (id: string) => void
-  onToggleSuspend: (id: string) => void
+  onToggleSuspend: (id: string) => void; canManage: boolean
   isDark: boolean; card: string; border: string; text: string; muted: string; subtle: string
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -302,7 +315,7 @@ function MemberCard({ member, onRoleChange, onRemove, onToggleAccess, onToggleSu
           <div style={{ fontSize: 12, color: muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{member.email}</div>
           <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <RoleSelect current={member.role} onChange={r => onRoleChange(member.id, r)}
-              disabled={isOwner} surface={card} border={border} isDark={isDark} muted={muted} />
+              disabled={isOwner || !canManage} surface={card} border={border} isDark={isDark} muted={muted} />
             <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", letterSpacing: "0.05em", borderRadius: 4,
               background: isSusp ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.1)",
               color: isSusp ? "#ef4444" : "#10b981",
@@ -311,7 +324,7 @@ function MemberCard({ member, onRoleChange, onRemove, onToggleAccess, onToggleSu
             </span>
           </div>
         </div>
-        {!isOwner && (
+        {!isOwner && canManage && (
           <div style={{ position: "relative", flexShrink: 0 }}>
             <button onClick={() => setMenuOpen(o => !o)}
               style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
@@ -352,10 +365,10 @@ function MemberCard({ member, onRoleChange, onRemove, onToggleAccess, onToggleSu
       <div style={{ padding: "10px 16px 13px", display: "flex", alignItems: "center", justifyContent: "space-between",
         borderTop: `1px solid ${border}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => !isOwner && onToggleAccess(member.id)} disabled={isOwner}
+          <button onClick={() => !isOwner && canManage && onToggleAccess(member.id)} disabled={isOwner || !canManage}
             style={{ width: 38, height: 20, border: "none", cursor: isOwner ? "not-allowed" : "pointer",
               background: member.apiAccess ? "#10b981" : (isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)"),
-              position: "relative", transition: "background 0.2s", flexShrink: 0, opacity: isOwner ? 0.5 : 1, borderRadius: 10 }}>
+              position: "relative", transition: "background 0.2s", flexShrink: 0, opacity: isOwner || !canManage ? 0.5 : 1, borderRadius: 10 }}>
             <motion.div animate={{ x: member.apiAccess ? 19 : 2 }} transition={{ type: "spring", stiffness: 500, damping: 35 }}
               style={{ position: "absolute", top: 2, width: 16, height: 16, background: "#fff",
                 borderRadius: "50%", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
@@ -377,8 +390,10 @@ function MemberCard({ member, onRoleChange, onRemove, onToggleAccess, onToggleSu
 }
 
 // ─── VIEW 1: Teams List ───────────────────────────────────────────────────────
-function TeamsListView({ teams, onSelectTeam, onCreateTeam, isDark, card, border, text, muted, subtle, isMobile }: {
-  teams: Team[]; onSelectTeam: (t: Team) => void; onCreateTeam: () => void
+function TeamsListView({ teams, pendingInvites, onSelectTeam, onCreateTeam, onAcceptInvite, loading, error, isDark, card, border, text, muted, subtle, isMobile }: {
+  teams: Team[]; pendingInvites: PendingInvite[]
+  onSelectTeam: (t: Team) => void; onCreateTeam: () => void; onAcceptInvite: (invite: PendingInvite) => void
+  loading: boolean; error: string | null
   isDark: boolean; card: string; border: string; text: string; muted: string; subtle: string; isMobile: boolean
 }) {
   const owned  = teams.filter(t => t.role === "owner" || t.role === "admin")
@@ -386,7 +401,6 @@ function TeamsListView({ teams, onSelectTeam, onCreateTeam, isDark, card, border
 
   const TeamCard = ({ team }: { team: Team }) => {
     const pc = PLAN_CFG[team.plan]
-    const isOwnerOrAdmin = team.role === "owner" || team.role === "admin"
     return (
       <motion.button
         whileHover={{ y: -1 }} whileTap={{ scale: 0.99 }}
@@ -437,8 +451,24 @@ function TeamsListView({ teams, onSelectTeam, onCreateTeam, isDark, card, border
     )
   }
 
+  if (loading) {
+    return (
+      <div style={{ padding: "36px 0", textAlign: "center", color: muted, fontSize: 13 }}>
+        Loading teams…
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: "36px 0", textAlign: "center", color: "#ef4444", fontSize: 13 }}>
+        {error}
+      </div>
+    )
+  }
+
   // Empty state
-  if (teams.length === 0) {
+  if (teams.length === 0 && pendingInvites.length === 0) {
     return (
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
         style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -469,6 +499,46 @@ function TeamsListView({ teams, onSelectTeam, onCreateTeam, isDark, card, border
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
       style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+
+      {pendingInvites.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em",
+            color: muted, marginBottom: 12 }}>Invites for you</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {pendingInvites.map((invite) => {
+              const pc = PLAN_CFG[invite.tier]
+              return (
+                <div key={invite.id} style={{ background: card, border: `1px solid ${border}`, borderRadius: 12, padding: "16px 18px",
+                  display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                    background: `color-mix(in srgb,${pc.color} 18%,transparent)`,
+                    border: `1.5px solid color-mix(in srgb,${pc.color} 30%,transparent)`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 18, fontWeight: 900, color: pc.color }}>
+                    {invite.teamName.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: text }}>{invite.teamName}</div>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                        background: pc.bg, color: pc.color }}>{pc.label}</span>
+                      <RoleBadge role={invite.role} small />
+                    </div>
+                    <div style={{ fontSize: 12, color: muted, marginTop: 6 }}>
+                      Invite expires in {invite.expiresAt}
+                    </div>
+                  </div>
+                  <motion.button whileTap={{ scale: 0.98 }} onClick={() => onAcceptInvite(invite)}
+                    style={{ padding: "9px 14px", background: "var(--color-primary)", color: "#fff",
+                      border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                    Accept invite
+                  </motion.button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Teams you manage */}
       {owned.length > 0 && (
@@ -515,7 +585,8 @@ function TeamsListView({ teams, onSelectTeam, onCreateTeam, isDark, card, border
 
 // ─── VIEW 2: Create Team ──────────────────────────────────────────────────────
 function CreateTeamView({ onBack, onCreate, isDark, card, border, text, muted, subtle, isMobile }: {
-  onBack: () => void; onCreate: (team: Team) => void
+  onBack: () => void
+  onCreate: (payload: { name: string; description: string; plan: TeamTier; invites: { email: string; role: Role }[] }) => Promise<{ success: boolean; error?: string }>
   isDark: boolean; card: string; border: string; text: string; muted: string; subtle: string; isMobile: boolean
 }) {
   const [step, setStep]         = useState<1 | 2>(1)
@@ -527,32 +598,32 @@ function CreateTeamView({ onBack, onCreate, isDark, card, border, text, muted, s
   const [pendingInvites, setPendingInvites] = useState<{ email: string; role: Role }[]>([])
   const [creating, setCreating] = useState(false)
   const [done, setDone]         = useState(false)
+  const [error, setError]       = useState<string | null>(null)
 
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+  const slug = slugify(name)
 
   const addInvite = () => {
-    if (!inviteEmail.trim() || pendingInvites.find(i => i.email === inviteEmail)) return
-    setPendingInvites(p => [...p, { email: inviteEmail.trim(), role: inviteRole }])
+    const trimmed = inviteEmail.trim().toLowerCase()
+    if (!trimmed || pendingInvites.find(i => i.email === trimmed)) return
+    setPendingInvites(p => [...p, { email: trimmed, role: inviteRole }])
     setInviteEmail("")
   }
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     setCreating(true)
-    setTimeout(() => {
+    setError(null)
+    const result = await onCreate({
+      name,
+      description,
+      plan,
+      invites: pendingInvites,
+    })
+    if (result.success) {
       setDone(true)
-      setTimeout(() => {
-        const COLORS = ["#6366f1","#10b981","#ec4899","#f59e0b","#06b6d4","#8b5cf6"]
-        const newTeam: Team = {
-          id: `t${Date.now()}`, name, slug, description, plan, role: "owner",
-          memberCount: 1 + pendingInvites.length, createdAt: "Now",
-          avatarColor: COLORS[Math.floor(Math.random() * COLORS.length)],
-          members: [], invites: pendingInvites.map((inv, idx) => ({
-            id: `ni${idx}`, email: inv.email, role: inv.role, sentAt: "Just now", expiresAt: "7 days",
-          })),
-        }
-        onCreate(newTeam)
-      }, 800)
-    }, 1200)
+    } else {
+      setError(result.error ?? "Failed to create team")
+    }
+    setCreating(false)
   }
 
   const PLANS = [
@@ -689,7 +760,7 @@ function CreateTeamView({ onBack, onCreate, isDark, card, border, text, muted, s
 
           {/* Add invite row */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: muted, marginBottom: 8 }}>Invite people</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: muted, marginBottom: 8 }}>Invite by email</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 200, display: "flex", border: `1px solid ${border}`, borderRadius: 8, overflow: "hidden" }}>
                 <div style={{ padding: "0 12px", height: 42, display: "flex", alignItems: "center",
@@ -754,6 +825,12 @@ function CreateTeamView({ onBack, onCreate, isDark, card, border, text, muted, s
             </div>
           )}
 
+          {error && (
+            <div style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.3)",
+              background: "rgba(239,68,68,0.08)", color: "#ef4444", fontSize: 12, fontWeight: 600 }}>
+              {error}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setStep(1)}
               style={{ flex: 1, padding: "12px", background: "transparent", border: `1px solid ${border}`,
@@ -761,10 +838,11 @@ function CreateTeamView({ onBack, onCreate, isDark, card, border, text, muted, s
               Back
             </button>
             <motion.button whileTap={{ scale: 0.97 }} onClick={handleCreate}
+              disabled={creating}
               style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px",
                 background: creating ? "#10b981" : "var(--color-primary)",
                 border: "none", color: "#fff", borderRadius: 8,
-                fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "background 0.2s" }}>
+                fontSize: 14, fontWeight: 700, cursor: creating ? "not-allowed" : "pointer", transition: "background 0.2s" }}>
               {creating ? <><Check size={15} /> Creating…</> : <><BadgePlus size={15} /> Create team{pendingInvites.length > 0 ? ` & send ${pendingInvites.length} invite${pendingInvites.length !== 1 ? "s" : ""}` : ""}</>}
             </motion.button>
           </div>
@@ -775,12 +853,15 @@ function CreateTeamView({ onBack, onCreate, isDark, card, border, text, muted, s
 }
 
 // ─── VIEW 3: Team Detail ──────────────────────────────────────────────────────
-function TeamDetailView({ team, onBack, isDark, card, border, text, muted, subtle, isMobile }: {
-  team: Team; onBack: () => void
+function TeamDetailView({ team, onBack, supabase, user, canManage, onRefreshTeams, isDark, card, border, text, muted, subtle, isMobile }: {
+  team: Team; onBack: () => void; supabase: SupabaseClient; user: DashboardUser
+  canManage: boolean; onRefreshTeams: () => Promise<void>
   isDark: boolean; card: string; border: string; text: string; muted: string; subtle: string; isMobile: boolean
 }) {
-  const [members, setMembers]       = useState<Member[]>(team.members)
-  const [invites, setInvites]       = useState<Invite[]>(team.invites)
+  const [members, setMembers]       = useState<Member[]>([])
+  const [invites, setInvites]       = useState<Invite[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(true)
+  const [memberError, setMemberError] = useState<string | null>(null)
   const [search, setSearch]         = useState("")
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all")
   const [tab, setTab]               = useState<"members" | "invites" | "permissions">("members")
@@ -793,15 +874,167 @@ function TeamDetailView({ team, onBack, isDark, card, border, text, muted, subtl
     return matchSearch && matchRole
   })
 
-  const handleRoleChange    = (id: string, role: Role) => setMembers(ms => ms.map(m => m.id === id ? { ...m, role } : m))
-  const handleRemove        = (id: string) => setMembers(ms => ms.filter(m => m.id !== id))
-  const handleToggleAccess  = (id: string) => setMembers(ms => ms.map(m => m.id === id ? { ...m, apiAccess: !m.apiAccess } : m))
-  const handleToggleSuspend = (id: string) => setMembers(ms => ms.map(m => m.id === id ? { ...m, status: m.status === "suspended" ? "active" : "suspended" } : m))
-  const revokeInvite        = (id: string) => setInvites(is => is.filter(i => i.id !== id))
-  const addInvite = (email: string, role: Role) => {
-    setInvites(is => [...is, { id: `i${Date.now()}`, email, role, sentAt: "Just now", expiresAt: "7 days" }])
+  const loadMembers = async () => {
+    setLoadingMembers(true)
+    setMemberError(null)
+    const { data: rows, error } = await supabase
+      .from("team_members")
+      .select("user_id, role, status, api_access, created_at, invite_expiry")
+      .eq("team_id", team.id)
+
+    if (error) {
+      setMemberError(error.message)
+      setLoadingMembers(false)
+      return
+    }
+
+    const memberRows = rows ?? []
+    const userIds = Array.from(new Set(memberRows.map((row) => row.user_id)))
+    const [{ data: profiles }, authUsers] = await Promise.all([
+      userIds.length
+        ? supabase.from("profiles").select("id, name").in("id", userIds)
+        : Promise.resolve({ data: [] }),
+      getAuthUsersByIds(userIds),
+    ])
+
+    const nameById = new Map((profiles ?? []).map((profile) => [profile.id, profile.name]))
+    const authById = new Map(authUsers.map((user) => [user.id, user]))
+
+    const mappedMembers: Member[] = memberRows
+      .filter((row) => row.status !== "pending")
+      .map((row) => {
+        const authUser = authById.get(row.user_id)
+        const name =
+          nameById.get(row.user_id) ||
+          authUser?.name ||
+          (row.user_id === user.id ? (user.name || "You") : "Team member")
+        const email = authUser?.email || (row.user_id === user.id ? user.email : "Unknown email")
+        return {
+          id: row.user_id,
+          name,
+          email,
+          role: (row.role ?? "viewer") as Role,
+          status: (row.status ?? "active") as MemberStatus,
+          joinedAt: formatShortDate(row.created_at),
+          lastActive: row.status === "suspended" ? "Suspended" : "Active",
+          avatarColor: getAvatarColor(row.user_id),
+          apiAccess: Boolean(row.api_access),
+        }
+      })
+
+    const mappedInvites: Invite[] = memberRows
+      .filter((row) => row.status === "pending")
+      .map((row) => {
+        const authUser = authById.get(row.user_id)
+        const name = nameById.get(row.user_id) || authUser?.email || authUser?.name || "Pending member"
+        return {
+          id: `${team.id}-${row.user_id}`,
+          email: name,
+          role: (row.role ?? "viewer") as Role,
+          sentAt: formatShortDate(row.created_at),
+          expiresAt: formatExpiry(row.invite_expiry),
+        }
+      })
+
+    setMembers(mappedMembers)
+    setInvites(mappedInvites)
+    setLoadingMembers(false)
+  }
+
+  useEffect(() => {
+    loadMembers()
+  }, [team.id])
+
+  const handleRoleChange = async (id: string, role: Role) => {
+    if (!canManage) return
+    const { error } = await supabase
+      .from("team_members")
+      .update({ role })
+      .eq("team_id", team.id)
+      .eq("user_id", id)
+    if (!error) {
+      setMembers(ms => ms.map(m => m.id === id ? { ...m, role } : m))
+      await onRefreshTeams()
+    }
+  }
+  const handleRemove = async (id: string) => {
+    if (!canManage) return
+    const { error } = await supabase
+      .from("team_members")
+      .delete()
+      .eq("team_id", team.id)
+      .eq("user_id", id)
+    if (!error) {
+      setMembers(ms => ms.filter(m => m.id !== id))
+      await onRefreshTeams()
+    }
+  }
+  const handleToggleAccess = async (id: string) => {
+    if (!canManage) return
+    const target = members.find(m => m.id === id)
+    if (!target) return
+    const { error } = await supabase
+      .from("team_members")
+      .update({ api_access: !target.apiAccess })
+      .eq("team_id", team.id)
+      .eq("user_id", id)
+    if (!error) {
+      setMembers(ms => ms.map(m => m.id === id ? { ...m, apiAccess: !m.apiAccess } : m))
+      await onRefreshTeams()
+    }
+  }
+  const handleToggleSuspend = async (id: string) => {
+    if (!canManage) return
+    const target = members.find(m => m.id === id)
+    if (!target) return
+    const nextStatus: MemberStatus = target.status === "suspended" ? "active" : "suspended"
+    const { error } = await supabase
+      .from("team_members")
+      .update({ status: nextStatus })
+      .eq("team_id", team.id)
+      .eq("user_id", id)
+    if (!error) {
+      setMembers(ms => ms.map(m => m.id === id ? { ...m, status: nextStatus } : m))
+      await onRefreshTeams()
+    }
+  }
+  const revokeInvite = async (id: string) => {
+    if (!canManage) return
+    const userId = id.split("-").slice(1).join("-")
+    const { error } = await supabase
+      .from("team_members")
+      .delete()
+      .eq("team_id", team.id)
+      .eq("user_id", userId)
+    if (!error) {
+      setInvites(is => is.filter(i => i.id !== id))
+      await onRefreshTeams()
+    }
+  }
+  const addInvite = async (email: string, role: Role) => {
+    if (!canManage) return
+    const normalized = email.trim().toLowerCase()
+    if (!normalized) {
+      setMemberError("Enter a valid email address.")
+      return
+    }
+    const resolved = await getAuthUsersByEmails([normalized])
+    const userId = resolved[0]?.id
+    if (!userId) {
+      setMemberError("No matching user for that email address.")
+      return
+    }
+    const { error } = await supabase
+      .from("team_members")
+      .insert({ team_id: team.id, user_id: userId, role, status: "pending" })
+    if (!error) {
+      setMemberError(null)
+      await loadMembers()
+      await onRefreshTeams()
+    }
   }
   const copyInviteLink = () => {
+    if (!canManage) return
     navigator.clipboard.writeText(`https://modelsnest.com/invite/${team.slug}`)
     setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000)
   }
@@ -840,19 +1073,21 @@ function TeamDetailView({ team, onBack, isDark, card, border, text, muted, subtl
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-            <button onClick={copyInviteLink}
+            <button onClick={copyInviteLink} disabled={!canManage}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px",
                 fontSize: 12, fontWeight: 600, background: "transparent",
-                border: `1px solid ${border}`, borderRadius: 8, color: muted, cursor: "pointer", transition: "all 0.15s" }}
+                border: `1px solid ${border}`, borderRadius: 8, color: muted,
+                cursor: canManage ? "pointer" : "not-allowed", opacity: canManage ? 1 : 0.6, transition: "all 0.15s" }}
               onMouseEnter={e => { e.currentTarget.style.color = text; e.currentTarget.style.borderColor = "var(--color-primary)" }}
               onMouseLeave={e => { e.currentTarget.style.color = muted; e.currentTarget.style.borderColor = border }}>
               {copiedLink ? <Check size={12} style={{ color: "#10b981" }} /> : <Copy size={12} />}
               {copiedLink ? "Copied!" : "Copy link"}
             </button>
-            <button onClick={() => setShowInvite(true)}
+            <button onClick={() => canManage && setShowInvite(true)} disabled={!canManage}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
                 fontSize: 13, fontWeight: 700, background: "var(--color-primary)", color: "#fff",
-                border: "none", borderRadius: 8, cursor: "pointer",
+                border: "none", borderRadius: 8, cursor: canManage ? "pointer" : "not-allowed",
+                opacity: canManage ? 1 : 0.6,
                 boxShadow: "0 4px 14px color-mix(in srgb,var(--color-primary) 40%,transparent)" }}>
               <UserPlus size={13} /> {isMobile ? "Invite" : "Invite member"}
             </button>
@@ -939,7 +1174,15 @@ function TeamDetailView({ team, onBack, isDark, card, border, text, muted, subtl
                 </div>
               </div>
 
-              {filtered.length === 0 ? (
+              {loadingMembers ? (
+                <div style={{ textAlign: "center", padding: "48px 0", background: card, border: `1px solid ${border}`, borderRadius: 10 }}>
+                  <div style={{ fontSize: 13, color: muted }}>Loading team members…</div>
+                </div>
+              ) : memberError ? (
+                <div style={{ textAlign: "center", padding: "48px 0", background: card, border: `1px solid ${border}`, borderRadius: 10 }}>
+                  <div style={{ fontSize: 13, color: "#ef4444" }}>{memberError}</div>
+                </div>
+              ) : filtered.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "48px 0", background: card, border: `1px solid ${border}`, borderRadius: 10 }}>
                   <Users size={26} style={{ color: subtle, margin: "0 auto 10px", display: "block" }} />
                   <p style={{ fontSize: 13, color: muted }}>No members match your search</p>
@@ -949,7 +1192,7 @@ function TeamDetailView({ team, onBack, isDark, card, border, text, muted, subtl
                   {filtered.map((m, i) => (
                     <motion.div key={m.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
                       <MemberCard member={m} onRoleChange={handleRoleChange} onRemove={handleRemove}
-                        onToggleAccess={handleToggleAccess} onToggleSuspend={handleToggleSuspend}
+                        onToggleAccess={handleToggleAccess} onToggleSuspend={handleToggleSuspend} canManage={canManage}
                         isDark={isDark} card={card} border={border} text={text} muted={muted} subtle={subtle} />
                     </motion.div>
                   ))}
@@ -965,10 +1208,10 @@ function TeamDetailView({ team, onBack, isDark, card, border, text, muted, subtl
                 display: "flex", alignItems: "center", gap: 10 }}>
                 <Clock size={13} style={{ color: "#f59e0b", flexShrink: 0 }} />
                 <span style={{ fontSize: 13, color: muted, flex: 1 }}>Invites expire after 7 days.</span>
-                <button onClick={() => setShowInvite(true)}
+                <button onClick={() => canManage && setShowInvite(true)} disabled={!canManage}
                   style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px",
                     background: "var(--color-primary)", border: "none", color: "#fff", fontSize: 12, fontWeight: 700,
-                    cursor: "pointer", borderRadius: 6, flexShrink: 0 }}>
+                    cursor: canManage ? "pointer" : "not-allowed", borderRadius: 6, flexShrink: 0, opacity: canManage ? 1 : 0.6 }}>
                   <UserPlus size={12} /> New invite
                 </button>
               </div>
@@ -1003,19 +1246,20 @@ function TeamDetailView({ team, onBack, isDark, card, border, text, muted, subtl
                             </div>
                           </div>
                           <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                            <button title="Resend" style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
-                              background: "transparent", border: `1px solid ${border}`, borderRadius: 6,
-                              cursor: "pointer", color: muted, transition: "color 0.15s" }}
-                              onMouseEnter={e => e.currentTarget.style.color = "var(--color-primary)"}
-                              onMouseLeave={e => e.currentTarget.style.color = muted}>
-                              <RefreshCw size={12} />
-                            </button>
-                            <button onClick={() => revokeInvite(inv.id)} title="Revoke"
+                            <button title="Resend" disabled={!canManage}
                               style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
                                 background: "transparent", border: `1px solid ${border}`, borderRadius: 6,
-                                cursor: "pointer", color: muted, transition: "color 0.15s" }}
-                              onMouseEnter={e => e.currentTarget.style.color = "#ef4444"}
-                              onMouseLeave={e => e.currentTarget.style.color = muted}>
+                                cursor: canManage ? "pointer" : "not-allowed", color: muted, opacity: canManage ? 1 : 0.6, transition: "color 0.15s" }}
+                              onMouseEnter={e => { if (canManage) e.currentTarget.style.color = "var(--color-primary)" }}
+                              onMouseLeave={e => { e.currentTarget.style.color = muted }}>
+                              <RefreshCw size={12} />
+                            </button>
+                            <button onClick={() => revokeInvite(inv.id)} title="Revoke" disabled={!canManage}
+                              style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
+                                background: "transparent", border: `1px solid ${border}`, borderRadius: 6,
+                                cursor: canManage ? "pointer" : "not-allowed", color: muted, opacity: canManage ? 1 : 0.6, transition: "color 0.15s" }}
+                              onMouseEnter={e => { if (canManage) e.currentTarget.style.color = "#ef4444" }}
+                              onMouseLeave={e => { e.currentTarget.style.color = muted }}>
                               <X size={12} />
                             </button>
                           </div>
@@ -1025,11 +1269,11 @@ function TeamDetailView({ team, onBack, isDark, card, border, text, muted, subtl
                   })}
                 </div>
               )}
-              <button onClick={copyInviteLink}
+              <button onClick={copyInviteLink} disabled={!canManage}
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px",
                   background: "transparent", border: `1px dashed ${border}`, borderRadius: 8,
-                  color: muted, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s", width: "100%" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--color-primary)"; e.currentTarget.style.color = "var(--color-primary)" }}
+                  color: muted, fontSize: 13, fontWeight: 600, cursor: canManage ? "pointer" : "not-allowed", opacity: canManage ? 1 : 0.6, transition: "all 0.15s", width: "100%" }}
+                onMouseEnter={e => { if (canManage) { e.currentTarget.style.borderColor = "var(--color-primary)"; e.currentTarget.style.color = "var(--color-primary)" } }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = border; e.currentTarget.style.color = muted }}>
                 {copiedLink ? <><Check size={13} style={{ color: "#10b981" }} /> Copied!</> : <><Copy size={13} /> Copy invite link</>}
               </button>
@@ -1104,6 +1348,7 @@ function TeamDetailView({ team, onBack, isDark, card, border, text, muted, subtl
 export function TeamPage({ user }: TeamPageProps) {
   const { isDark } = useTheme()
   const { sidebarWidth, isMobile } = useSidebar()
+  const supabase = useMemo(() => createClient(), [])
 
   const bg     = isDark ? "#0D0D0F" : "#f4f4f2"
   const card   = isDark ? "#18181c" : "#ffffff"
@@ -1114,20 +1359,209 @@ export function TeamPage({ user }: TeamPageProps) {
 
   const headerLeft = isMobile ? 0 : sidebarWidth
 
-  const [view, setView]           = useState<View>("list")
-  const [teams, setTeams]         = useState<Team[]>(SEED_TEAMS)
+  const [view, setView]             = useState<View>("list")
+  const [teams, setTeams]           = useState<Team[]>([])
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   const [activeTeam, setActiveTeam] = useState<Team | null>(null)
+  const [loadingTeams, setLoadingTeams] = useState(true)
+  const [teamsError, setTeamsError] = useState<string | null>(null)
+
+  const loadTeams = async () => {
+    setLoadingTeams(true)
+    setTeamsError(null)
+
+    const { data: memberships, error: membershipError } = await supabase
+      .from("team_members")
+      .select("team_id, user_id, role, status, created_at, invite_expiry")
+      .eq("user_id", user.id)
+
+    if (membershipError) {
+      setTeamsError(membershipError.message)
+      setLoadingTeams(false)
+      return
+    }
+
+    const rows = memberships ?? []
+    const teamIds = Array.from(new Set(rows.map((row) => row.team_id)))
+    const { data: teamRows, error: teamError } = teamIds.length
+      ? await supabase
+          .from("teams")
+          .select("id, name, description, tier, created_at, owner_id")
+          .in("id", teamIds)
+      : { data: [], error: null }
+
+    if (teamError) {
+      setTeamsError(teamError.message)
+      setLoadingTeams(false)
+      return
+    }
+
+    const { data: memberCounts } = teamIds.length
+      ? await supabase
+          .from("team_members")
+          .select("team_id, status")
+          .in("team_id", teamIds)
+      : { data: [] }
+
+    const countByTeam = new Map<string, number>()
+    ;(memberCounts ?? []).forEach((row) => {
+      if (row.status === "pending") return
+      countByTeam.set(row.team_id, (countByTeam.get(row.team_id) ?? 0) + 1)
+    })
+
+    const teamById = new Map((teamRows ?? []).map((row) => [row.id, row]))
+    const mappedTeams = rows
+      .filter((row) => row.status !== "pending")
+      .map((row) => {
+        const team = teamById.get(row.team_id)
+        if (!team) return null
+        return {
+          id: team.id,
+          name: team.name ?? "Untitled team",
+          slug: slugify(team.name ?? "team"),
+          description: team.description ?? "",
+          plan: (team.tier ?? "free") as TeamTier,
+          role: (row.role ?? "viewer") as Role,
+          memberCount: countByTeam.get(team.id) ?? 1,
+          avatarColor: getAvatarColor(team.id),
+          createdAt: formatMonthYear(team.created_at),
+          members: [],
+          invites: [],
+        }
+      })
+      .filter(Boolean) as Team[]
+
+    const now = Date.now()
+    const mappedInvites: PendingInvite[] = rows
+      .filter((row) => row.status === "pending")
+      .filter((row) => {
+        if (!row.invite_expiry) return true
+        const expiresAt = new Date(row.invite_expiry)
+        return !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() > now
+      })
+      .map((row) => {
+        const team = teamById.get(row.team_id)
+        return {
+          id: `${row.team_id}-${row.user_id}`,
+          teamId: row.team_id,
+          teamName: team?.name ?? "Team",
+          teamSlug: slugify(team?.name ?? "team"),
+          tier: (team?.tier ?? "free") as TeamTier,
+          role: (row.role ?? "viewer") as Role,
+          sentAt: formatShortDate(row.created_at),
+          expiresAt: formatExpiry(row.invite_expiry),
+        }
+      })
+
+    setTeams(mappedTeams)
+    setPendingInvites(mappedInvites)
+    setActiveTeam((current) => {
+      if (!current) return current
+      return mappedTeams.find((team) => team.id === current.id) ?? null
+    })
+    setLoadingTeams(false)
+  }
+
+  useEffect(() => {
+    loadTeams()
+  }, [user.id])
 
   const handleSelectTeam = (t: Team) => { setActiveTeam(t); setView("detail") }
   const handleCreateTeam = () => { setActiveTeam(null); setView("create") }
-  const handleTeamCreated = (t: Team) => {
-    setTeams(ts => [t, ...ts])
-    setTimeout(() => { setActiveTeam(t); setView("detail") }, 600)
+
+  const handleTeamCreated = async (payload: { name: string; description: string; plan: TeamTier; invites: { email: string; role: Role }[] }) => {
+    const { data: teamRow, error: teamError } = await supabase
+      .from("teams")
+      .insert({
+        name: payload.name,
+        description: payload.description,
+        owner_id: user.id,
+        tier: payload.plan,
+      })
+      .select("id, name, description, tier, created_at, owner_id")
+      .single()
+
+    if (teamError || !teamRow) {
+      return { success: false, error: teamError?.message ?? "Failed to create team" }
+    }
+
+    const { error: memberError } = await supabase
+      .from("team_members")
+      .insert({ team_id: teamRow.id, user_id: user.id, role: "owner", status: "active", api_access: true })
+
+    if (memberError) {
+      return { success: false, error: memberError.message }
+    }
+
+    if (payload.invites.length > 0) {
+      const normalizedInvites = payload.invites.map((inv) => ({
+        email: inv.email.trim().toLowerCase(),
+        role: inv.role,
+      }))
+      const resolved = await getAuthUsersByEmails(normalizedInvites.map((inv) => inv.email))
+      const resolvedByEmail = new Map(resolved.map((user) => [user.email, user]))
+
+      const inviteRows = normalizedInvites
+        .map((inv) => {
+          const match = resolvedByEmail.get(inv.email)
+          if (!match?.id) return null
+          return {
+            team_id: teamRow.id,
+            user_id: match.id,
+            role: inv.role,
+            status: "pending",
+          }
+        })
+        .filter(Boolean) as { team_id: string; user_id: string; role: Role; status: "pending" }[]
+
+      if (inviteRows.length === 0) {
+        return { success: false, error: "No matching users found for invite emails." }
+      }
+
+      const { error: inviteError } = await supabase
+        .from("team_members")
+        .insert(inviteRows)
+      if (inviteError) {
+        return { success: false, error: inviteError.message }
+      }
+    }
+
+    await loadTeams()
+    const newTeam: Team = {
+      id: teamRow.id,
+      name: teamRow.name ?? payload.name,
+      slug: slugify(teamRow.name ?? payload.name),
+      description: teamRow.description ?? payload.description,
+      plan: (teamRow.tier ?? payload.plan) as TeamTier,
+      role: "owner",
+      memberCount: 1 + payload.invites.length,
+      avatarColor: getAvatarColor(teamRow.id),
+      createdAt: formatMonthYear(teamRow.created_at),
+      members: [],
+      invites: [],
+    }
+    setActiveTeam(newTeam)
+    setView("detail")
+    return { success: true }
+  }
+
+  const handleAcceptInvite = async (invite: PendingInvite) => {
+    const { error } = await supabase
+      .from("team_members")
+      .update({ status: "active" })
+      .eq("team_id", invite.teamId)
+      .eq("user_id", user.id)
+
+    if (error) {
+      setTeamsError(error.message)
+      return
+    }
+    await loadTeams()
   }
 
   const headerTitle = view === "list" ? "Teams" : view === "create" ? "Create team" : activeTeam?.name ?? "Team"
   const headerSub   = view === "list"
-    ? `${teams.length} team${teams.length !== 1 ? "s" : ""}`
+    ? (loadingTeams ? "Loading…" : `${teams.length} team${teams.length !== 1 ? "s" : ""}`)
     : view === "create" ? "Set up your workspace"
     : `${activeTeam?.memberCount ?? 0} members`
 
@@ -1183,7 +1617,8 @@ export function TeamPage({ user }: TeamPageProps) {
           <AnimatePresence mode="wait">
             {view === "list" && (
               <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                <TeamsListView teams={teams} onSelectTeam={handleSelectTeam} onCreateTeam={handleCreateTeam}
+                <TeamsListView teams={teams} pendingInvites={pendingInvites} onSelectTeam={handleSelectTeam}
+                  onCreateTeam={handleCreateTeam} onAcceptInvite={handleAcceptInvite} loading={loadingTeams} error={teamsError}
                   isDark={isDark} card={card} border={border} text={text} muted={muted} subtle={subtle} isMobile={isMobile} />
               </motion.div>
             )}
@@ -1196,6 +1631,8 @@ export function TeamPage({ user }: TeamPageProps) {
             {view === "detail" && activeTeam && (
               <motion.div key={`detail-${activeTeam.id}`} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.2 }}>
                 <TeamDetailView team={activeTeam} onBack={() => setView("list")}
+                  supabase={supabase} user={user} onRefreshTeams={loadTeams}
+                  canManage={activeTeam.role === "owner" || activeTeam.role === "admin"}
                   isDark={isDark} card={card} border={border} text={text} muted={muted} subtle={subtle} isMobile={isMobile} />
               </motion.div>
             )}
