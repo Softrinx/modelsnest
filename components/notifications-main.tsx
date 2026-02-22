@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { getProfile, updateNotificationSettings } from "@/app/actions/settings"
 import { 
   Bell, 
   Mail, 
@@ -24,6 +25,8 @@ interface NotificationsMainProps {
 }
 
 export function NotificationsMain({ user }: NotificationsMainProps) {
+  type NotificationUpdates = Parameters<typeof updateNotificationSettings>[0]
+
   const [notifications, setNotifications] = useState({
     email: {
       enabled: true,
@@ -59,14 +62,94 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
     { id: 4, type: 'update', message: 'New features available', time: '1 day ago', read: true }
   ])
 
-  const toggleNotification = (category: string, subcategory: string) => {
-    setNotifications(prev => ({
-      ...prev,
-      [category]: {
-        ...prev[category as keyof typeof prev],
-        [subcategory]: !(prev[category as keyof typeof prev] as any)[subcategory]
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadProfile = async () => {
+      const result = await getProfile()
+
+      if (!isMounted) {
+        return
       }
-    }))
+
+      if (result.success && result.data) {
+        setNotifications((prev) => ({
+          ...prev,
+          email: {
+            ...prev.email,
+            enabled: result.data.email_notifications,
+            security: result.data.security_alerts,
+            billing: result.data.billing_notifications,
+            updates: result.data.product_updates,
+            marketing: result.data.marketing_updates
+          },
+          push: {
+            ...prev.push,
+            enabled: result.data.push_notifications
+          }
+        }))
+      }
+    }
+
+    loadProfile()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const toggleNotification = async (category: string, subcategory: string) => {
+    setSaveMessage(null)
+
+    let nextValue = false
+    setNotifications(prev => {
+      const current = (prev[category as keyof typeof prev] as any)[subcategory]
+      nextValue = !current
+      return {
+        ...prev,
+        [category]: {
+          ...prev[category as keyof typeof prev],
+          [subcategory]: nextValue
+        }
+      }
+    })
+
+    const profileFieldMap: Record<string, Record<string, string>> = {
+      email: {
+        enabled: "email_notifications",
+        security: "security_alerts",
+        billing: "billing_notifications",
+        updates: "product_updates",
+        marketing: "marketing_updates"
+      },
+      push: {
+        enabled: "push_notifications"
+      }
+    }
+
+    const profileField = profileFieldMap[category]?.[subcategory]
+
+    if (!profileField) {
+      return
+    }
+
+    const result = await updateNotificationSettings({ [profileField]: nextValue } as NotificationUpdates)
+
+    if (!result.success) {
+      setNotifications(prev => ({
+        ...prev,
+        [category]: {
+          ...prev[category as keyof typeof prev],
+          [subcategory]: !nextValue
+        }
+      }))
+      setSaveMessage({ type: 'error', text: result.error || 'Failed to update notifications' })
+      return
+    }
+
+    setSaveMessage({ type: 'success', text: 'Notification preferences updated' })
   }
 
   const toggleQuietHours = () => {
@@ -103,6 +186,22 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
       {/* Notifications Content */}
       <div className="flex-1 p-6 overflow-auto">
         <div className="max-w-4xl mx-auto space-y-6">
+          {saveMessage && (
+            <div className={`p-4 rounded-lg border flex items-center gap-3 ${
+              saveMessage.type === 'success'
+                ? 'bg-green-500/10 border-green-500/30'
+                : 'bg-red-500/10 border-red-500/30'
+            }`}>
+              {saveMessage.type === 'success' ? (
+                <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+              ) : (
+                <Shield className="w-5 h-5 text-red-400 flex-shrink-0" />
+              )}
+              <p className={saveMessage.type === 'success' ? 'text-green-300' : 'text-red-300'}>
+                {saveMessage.text}
+              </p>
+            </div>
+          )}
           
           {/* Email Notifications */}
           <Card className="bg-[#1A1B1F] border-[#2D2D32]">

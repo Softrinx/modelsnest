@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { updateUserProfile, changePassword, logoutUser } from "@/app/actions/settings"
+import { useState, useEffect } from "react"
+import { updateUserProfile, changePassword, logoutUser, getProfile, updateNotificationSettings } from "@/app/actions/settings"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -47,12 +47,41 @@ export function SettingsMain({ user }: SettingsMainProps) {
     updates: true
   })
 
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
+  const [notificationsMessage, setNotificationsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
   const [isLoadingPassword, setIsLoadingPassword] = useState(false)
   const [isLoadingLogout, setIsLoadingLogout] = useState(false)
 
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadProfile = async () => {
+      const result = await getProfile()
+
+      if (!isMounted) {
+        return
+      }
+
+      if (result.success && result.data) {
+        setNotifications((prev) => ({
+          ...prev,
+          email: result.data.email_notifications,
+          push: result.data.push_notifications
+        }))
+      }
+    }
+
+    loadProfile()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const handleProfileUpdate = async () => {
     setIsLoadingProfile(true)
@@ -107,6 +136,33 @@ export function SettingsMain({ user }: SettingsMainProps) {
     } catch (error) {
       setIsLoadingLogout(false)
     }
+  }
+
+  const handleNotificationToggle = async (key: "email" | "push") => {
+    setNotificationsMessage(null)
+    setIsLoadingNotifications(true)
+
+    // Compute next value based on current state
+    const nextValue = !notifications[key]
+
+    // Update state
+    setNotifications((prev) => ({ ...prev, [key]: nextValue }))
+
+    // Use the computed value for API call
+    const updates = key === "email"
+      ? { email_notifications: nextValue }
+      : { push_notifications: nextValue }
+
+    const result = await updateNotificationSettings(updates)
+
+    if (!result.success) {
+      setNotifications((prev) => ({ ...prev, [key]: !nextValue }))
+      setNotificationsMessage({ type: 'error', text: result.error || 'Failed to update notifications' })
+    } else {
+      setNotificationsMessage({ type: 'success', text: 'Notification preferences updated' })
+    }
+
+    setIsLoadingNotifications(false)
   }
 
   return (
@@ -349,6 +405,22 @@ export function SettingsMain({ user }: SettingsMainProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {notificationsMessage && (
+                    <div className={`p-4 rounded-lg border flex items-center gap-3 ${
+                      notificationsMessage.type === 'success'
+                        ? 'bg-green-500/10 border-green-500/30'
+                        : 'bg-red-500/10 border-red-500/30'
+                    }`}>
+                      {notificationsMessage.type === 'success' ? (
+                        <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                      )}
+                      <p className={notificationsMessage.type === 'success' ? 'text-green-300' : 'text-red-300'}>
+                        {notificationsMessage.text}
+                      </p>
+                    </div>
+                  )}
                   <div className="p-4 bg-[#2D2D32] rounded-lg border border-[#3D3D42]">
                     <div className="flex items-center justify-between">
                       <div>
@@ -372,7 +444,8 @@ export function SettingsMain({ user }: SettingsMainProps) {
                     <Button
                       variant={notifications.email ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setNotifications({...notifications, email: !notifications.email})}
+                      onClick={() => handleNotificationToggle("email")}
+                      disabled={isLoadingNotifications}
                       className={notifications.email ? "bg-[#8C5CF7]" : "border-[#2D2D32] text-[#A0A0A8]"}
                     >
                       {notifications.email ? "On" : "Off"}
@@ -386,7 +459,8 @@ export function SettingsMain({ user }: SettingsMainProps) {
                     <Button
                       variant={notifications.push ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setNotifications({...notifications, push: !notifications.push})}
+                      onClick={() => handleNotificationToggle("push")}
+                      disabled={isLoadingNotifications}
                       className={notifications.push ? "bg-[#8C5CF7]" : "border-[#2D2D32] text-[#A0A0A8]"}
                     >
                       {notifications.push ? "On" : "Off"}
