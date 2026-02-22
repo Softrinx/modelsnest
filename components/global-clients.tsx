@@ -275,14 +275,7 @@ export function GlobalClients() {
                   Get Started Free
                 </button>
               </a>
-              <a href="/case-studies">
-                <button
-                  className="text-sm font-mono transition-opacity hover:opacity-60"
-                  style={{ color: "var(--color-text-muted)" }}
-                >
-                  Read case studies →
-                </button>
-              </a>
+
             </div>
           </div>
         </motion.div>
