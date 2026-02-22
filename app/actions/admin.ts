@@ -337,80 +337,135 @@ export async function adminUnsuspendUserAction(formData: FormData): Promise<Admi
   return { success: true, message: "User reactivated successfully" }
 }
 
-// Get all transactions with dummy data
+// Get all transactions from database
 export async function getTransactions(): Promise<AdminTransaction[]> {
   await requireAdmin()
+  const supabase = await createAdminClient()
 
-  return [
-    {
-      id: "tx_1",
-      user_id: "user_1",
-      user_name: "John Doe",
-      user_email: "john@example.com",
-      type: "topup",
-      amount: 500,
-      description: "PayPal top-up",
-      reference_id: "pp_123456",
-      status: "completed",
-      payment_method: "paypal",
-      metadata: { source: "paypal" },
-      created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "tx_2",
-      user_id: "user_2",
-      user_name: "Jane Smith",
-      user_email: "jane@example.com",
-      type: "usage",
-      amount: 150.75,
-      description: "API usage charges",
-      reference_id: null,
-      status: "completed",
-      payment_method: null,
-      metadata: { service: "api" },
-      created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "tx_3",
-      user_id: "user_1",
-      user_name: "John Doe",
-      user_email: "john@example.com",
-      type: "usage",
-      amount: 75.50,
-      description: "Chat API usage",
-      reference_id: null,
-      status: "completed",
-      payment_method: null,
-      metadata: { service: "chat" },
-      created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ]
+  try {
+    const { data: transactions, error } = await supabase
+      .from("credit_transactions")
+      .select("id, user_id, type, amount, description, reference_id, status, metadata, created_at")
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching transactions:", error)
+      return []
+    }
+
+    const rows = transactions || []
+    const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter(Boolean)))
+
+    const { data: profilesData } = userIds.length
+      ? await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", userIds)
+      : { data: [] }
+
+    const profileNameById = new Map((profilesData || []).map((profile) => [profile.id, profile.name]))
+
+    const { data: authUsersData } = await supabase.auth.admin.listUsers()
+    const authUsers = authUsersData?.users || []
+    const emailById = new Map(authUsers.map((user) => [user.id, user.email || "Unknown email"]))
+    const authNameById = new Map(
+      authUsers.map((user) => [
+        user.id,
+        (user.user_metadata?.name as string | undefined) ||
+          (user.user_metadata?.full_name as string | undefined) ||
+          null,
+      ])
+    )
+
+    return rows.map((row) => {
+      const metadata = row.metadata as Record<string, unknown> | null
+      const metadataPaymentMethod = metadata?.payment_method
+      const metadataSource = metadata?.source
+
+      return {
+        id: row.id,
+        user_id: row.user_id,
+        user_name: profileNameById.get(row.user_id) || authNameById.get(row.user_id) || null,
+        user_email: emailById.get(row.user_id) || "Unknown email",
+        type: row.type,
+        amount: Number.parseFloat(String(row.amount ?? 0)),
+        description: row.description,
+        reference_id: row.reference_id,
+        status: row.status,
+        payment_method:
+          typeof metadataPaymentMethod === "string"
+            ? metadataPaymentMethod
+            : typeof metadataSource === "string"
+              ? metadataSource
+              : null,
+        metadata: metadata,
+        created_at: row.created_at,
+        updated_at: row.created_at,
+      }
+    })
+  } catch (error) {
+    console.error("Error in getTransactions:", error)
+    return []
+  }
 }
 
-// Get transaction by ID with dummy data
+// Get transaction by ID from database
 export async function getTransactionById(id: string): Promise<AdminTransaction | null> {
   await requireAdmin()
+  const supabase = await createAdminClient()
 
-  if (id === "tx_1") {
-    return {
-      id: "tx_1",
-      user_id: "user_1",
-      user_name: "John Doe",
-      user_email: "john@example.com",
-      type: "topup",
-      amount: 500,
-      description: "PayPal top-up",
-      reference_id: "pp_123456",
-      status: "completed",
-      payment_method: "paypal",
-      metadata: { source: "paypal" },
-      created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+  try {
+    const { data: tx, error } = await supabase
+      .from("credit_transactions")
+      .select("id, user_id, type, amount, description, reference_id, status, metadata, created_at")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error) {
+      console.error("Error fetching transaction by ID:", error)
+      return null
     }
-  }
 
-  return null
+    if (!tx) {
+      return null
+    }
+
+    const [{ data: profile }, { data: authUserData }] = await Promise.all([
+      supabase.from("profiles").select("id, name").eq("id", tx.user_id).maybeSingle(),
+      supabase.auth.admin.getUserById(tx.user_id),
+    ])
+
+    const authUser = authUserData?.user
+    const metadata = tx.metadata as Record<string, unknown> | null
+    const metadataPaymentMethod = metadata?.payment_method
+    const metadataSource = metadata?.source
+
+    return {
+      id: tx.id,
+      user_id: tx.user_id,
+      user_name:
+        profile?.name ||
+        (authUser?.user_metadata?.name as string | undefined) ||
+        (authUser?.user_metadata?.full_name as string | undefined) ||
+        null,
+      user_email: authUser?.email || "Unknown email",
+      type: tx.type,
+      amount: Number.parseFloat(String(tx.amount ?? 0)),
+      description: tx.description,
+      reference_id: tx.reference_id,
+      status: tx.status,
+      payment_method:
+        typeof metadataPaymentMethod === "string"
+          ? metadataPaymentMethod
+          : typeof metadataSource === "string"
+            ? metadataSource
+            : null,
+      metadata,
+      created_at: tx.created_at,
+      updated_at: tx.created_at,
+    }
+  } catch (error) {
+    console.error("Error in getTransactionById:", error)
+    return null
+  }
 }
