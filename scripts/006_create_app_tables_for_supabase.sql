@@ -294,6 +294,18 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
+      AND tablename = 'user_credits'
+      AND policyname = 'user_read_own_credits'
+  ) THEN
+    CREATE POLICY user_read_own_credits
+      ON public.user_credits
+      FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
       AND tablename = 'credit_transactions'
       AND policyname = 'admin_manage_credit_transactions'
   ) THEN
@@ -307,6 +319,18 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
+      AND tablename = 'credit_transactions'
+      AND policyname = 'user_read_own_credit_transactions'
+  ) THEN
+    CREATE POLICY user_read_own_credit_transactions
+      ON public.credit_transactions
+      FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
       AND tablename = 'usage_logs'
       AND policyname = 'admin_manage_usage_logs'
   ) THEN
@@ -315,6 +339,18 @@ BEGIN
       FOR ALL
       USING (public.is_admin())
       WITH CHECK (public.is_admin());
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'usage_logs'
+      AND policyname = 'user_read_own_usage_logs'
+  ) THEN
+    CREATE POLICY user_read_own_usage_logs
+      ON public.usage_logs
+      FOR SELECT
+      USING (auth.uid() = user_id);
   END IF;
 END;
 $$;

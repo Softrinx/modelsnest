@@ -11,48 +11,87 @@ export async function getBillingInfo() {
       return { success: false, error: "Not authenticated" }
     }
 
-    // Return dummy billing data for now
+    const { data: creditsRow, error: creditsError } = await supabase
+      .from("user_credits")
+      .select("balance, total_spent, total_topped_up, created_at, updated_at")
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (creditsError) {
+      console.error("Error fetching user credits:", creditsError)
+      return { success: false, error: "Failed to load user credits" }
+    }
+
+    const { data: transactionsRows, error: transactionsError } = await supabase
+      .from("credit_transactions")
+      .select("id, type, amount, description, status, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(100)
+
+    if (transactionsError) {
+      console.error("Error fetching credit transactions:", transactionsError)
+      return { success: false, error: "Failed to load credit transactions" }
+    }
+
+    const { data: usageRows, error: usageError } = await supabase
+      .from("usage_logs")
+      .select("cost, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1000)
+
+    if (usageError) {
+      console.error("Error fetching usage logs:", usageError)
+      return { success: false, error: "Failed to load usage analytics" }
+    }
+
+    const credits = {
+      balance: Number.parseFloat(String(creditsRow?.balance ?? 0)),
+      total_spent: Number.parseFloat(String(creditsRow?.total_spent ?? 0)),
+      total_topped_up: Number.parseFloat(String(creditsRow?.total_topped_up ?? 0)),
+      created_at: creditsRow?.created_at ?? new Date().toISOString(),
+      updated_at: creditsRow?.updated_at ?? new Date().toISOString(),
+    }
+
+    const transactions = (transactionsRows || []).map((tx) => ({
+      id: tx.id,
+      type: tx.type,
+      amount: Number.parseFloat(String(tx.amount ?? 0)),
+      description: tx.description ?? null,
+      status: tx.status,
+      created_at: tx.created_at,
+    }))
+
+    const monthlyUsageMap = new Map<string, { total_cost: number; usage_count: number }>()
+
+    for (const usage of usageRows || []) {
+      const createdAt = usage.created_at ? new Date(usage.created_at) : null
+      if (!createdAt || Number.isNaN(createdAt.getTime())) {
+        continue
+      }
+
+      const monthKey = new Date(Date.UTC(createdAt.getUTCFullYear(), createdAt.getUTCMonth(), 1)).toISOString()
+      const existing = monthlyUsageMap.get(monthKey) || { total_cost: 0, usage_count: 0 }
+      existing.total_cost += Number.parseFloat(String(usage.cost ?? 0))
+      existing.usage_count += 1
+      monthlyUsageMap.set(monthKey, existing)
+    }
+
+    const monthlyUsage = Array.from(monthlyUsageMap.entries())
+      .map(([month, values]) => ({
+        month,
+        total_cost: Number(values.total_cost.toFixed(4)),
+        usage_count: values.usage_count,
+      }))
+      .sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime())
+
     return {
       success: true,
       data: {
-        credits: {
-          balance: 150.00,
-          total_spent: 275.50,
-          total_topped_up: 425.50,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        transactions: [
-          {
-            id: "tx_1",
-            type: "topup",
-            amount: 100,
-            description: "PayPal top-up",
-            status: "completed",
-            created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          },
-          {
-            id: "tx_2",
-            type: "usage",
-            amount: 50.25,
-            description: "API usage charges",
-            status: "completed",
-            created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          },
-          {
-            id: "tx_3",
-            type: "topup",
-            amount: 325.50,
-            description: "Credit card top-up",
-            status: "completed",
-            created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-          },
-        ],
-        monthlyUsage: [
-          { month: new Date(Date.now() - 0 * 30 * 24 * 60 * 60 * 1000).toISOString(), total_cost: 42.50, usage_count: 156 },
-          { month: new Date(Date.now() - 1 * 30 * 24 * 60 * 60 * 1000).toISOString(), total_cost: 65.00, usage_count: 248 },
-          { month: new Date(Date.now() - 2 * 30 * 24 * 60 * 60 * 1000).toISOString(), total_cost: 168.00, usage_count: 412 },
-        ],
+        credits,
+        transactions,
+        monthlyUsage,
         user: {
           id: user.id,
           email: user.email,
