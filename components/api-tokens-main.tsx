@@ -55,6 +55,11 @@ export function ApiTokensMain({ user }: ApiTokensMainProps) {
   const [integrations, setIntegrations] = useState<any[]>([])
   const [loading, setLoading]           = useState(true)
 
+  const refreshTokenData = async () => {
+    const t = await getUserTokens()
+    setTokens(t.data ?? [])
+  }
+
   useEffect(() => {
     Promise.all([getUserTokens(), getUserIntegrations()])
       .then(([t, i]) => { setTokens(t.data ?? []); setIntegrations(i.data ?? []) })
@@ -140,7 +145,7 @@ export function ApiTokensMain({ user }: ApiTokensMainProps) {
 
           {/* Action row */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <CreateTokenDialog />
+            <CreateTokenDialog onTokenCreated={refreshTokenData} />
             <Link href="/docs/api" style={{ textDecoration: "none" }}>
               <button
                 style={{ display: "flex", alignItems: "center", gap: 7, padding: "0 16px", height: 38,
@@ -169,20 +174,20 @@ export function ApiTokensMain({ user }: ApiTokensMainProps) {
         <Section
           title="Personal API Tokens" icon={Key} color="var(--color-primary)"
           border={border} surface={surface} text={text} muted={muted} isDark={isDark}
-          action={tokens.length > 0 ? <CreateTokenDialog /> : undefined}
+          action={tokens.length > 0 ? <CreateTokenDialog onTokenCreated={refreshTokenData} /> : undefined}
         >
           {tokens.length > 0 ? (
             <>
               <p style={{ fontSize: 12, color: muted, marginBottom: 16 }}>
                 Default API token created on signup. Regenerate any time.
               </p>
-              <ApiTokensList tokens={tokens} />
+              <ApiTokensList tokens={tokens} onTokensChanged={refreshTokenData} />
             </>
           ) : (
             <div style={{ textAlign: "center", padding: "40px 0" }}>
               <Key size={32} style={{ color: muted, margin: "0 auto 12px", display: "block" }} />
               <p style={{ fontSize: 14, color: muted, marginBottom: 16 }}>No API tokens yet</p>
-              <CreateTokenDialog />
+              <CreateTokenDialog onTokenCreated={refreshTokenData} />
             </div>
           )}
         </Section>

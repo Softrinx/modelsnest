@@ -9,7 +9,7 @@ import { regenerateToken, deleteToken } from "@/app/actions/api-tokens"
 import { TokenActionDialog } from "@/components/token-action-dialog"
 
 interface Token {
-  id: number
+  id: string
   name: string
   token_prefix: string
   last_used_at: string | null
@@ -18,7 +18,10 @@ interface Token {
   is_active: boolean
 }
 
-interface ApiTokensListProps { tokens: Token[] }
+interface ApiTokensListProps {
+  tokens: Token[]
+  onTokensChanged?: () => void | Promise<void>
+}
 
 function IconBtn({
   onClick, title, disabled, spin, danger, children
@@ -54,12 +57,12 @@ function IconBtn({
   )
 }
 
-export function ApiTokensList({ tokens }: ApiTokensListProps) {
+export function ApiTokensList({ tokens, onTokensChanged }: ApiTokensListProps) {
   const { isDark } = useTheme()
-  const [visible,      setVisible]      = useState<Set<number>>(new Set())
-  const [copied,       setCopied]        = useState<Set<number>>(new Set())
-  const [regenerating, setRegenerating]  = useState<Set<number>>(new Set())
-  const [hovered,      setHovered]       = useState<number | null>(null)
+  const [visible,      setVisible]      = useState<Set<string>>(new Set())
+  const [copied,       setCopied]        = useState<Set<string>>(new Set())
+  const [regenerating, setRegenerating]  = useState<Set<string>>(new Set())
+  const [hovered,      setHovered]       = useState<string | null>(null)
 
   const bg      = isDark ? "#111114" : "#ffffff"
   const surface = isDark ? "#0f0f12" : "#f8f8f6"
@@ -68,11 +71,11 @@ export function ApiTokensList({ tokens }: ApiTokensListProps) {
   const muted   = isDark ? "#52525b" : "#a1a1aa"
   const subtext = isDark ? "#71717a" : "#71717a"
 
-  const toggleVisible = (id: number) => {
+  const toggleVisible = (id: string) => {
     setVisible(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
-  const handleCopy = async (prefix: string, id: number) => {
+  const handleCopy = async (prefix: string, id: string) => {
     try {
       await copyToClipboard(prefix)
       setCopied(s => new Set(s).add(id))
@@ -80,7 +83,7 @@ export function ApiTokensList({ tokens }: ApiTokensListProps) {
     } catch (e) { console.error(e) }
   }
 
-  const handleRegenerate = async (id: number) => {
+  const handleRegenerate = async (id: string) => {
     setRegenerating(s => new Set(s).add(id))
     try {
       const fd = new FormData(); fd.append("tokenId", String(id))
@@ -88,16 +91,20 @@ export function ApiTokensList({ tokens }: ApiTokensListProps) {
       if (res.success) {
         const tok = "token" in res ? res.token : ""
         alert(`New token generated:\n${tok}\n\nCopy it now — you won't see it again.`)
+        await onTokensChanged?.()
       }
     } catch (e) { console.error(e); alert("Failed to regenerate token") }
     finally { setRegenerating(s => { const n = new Set(s); n.delete(id); return n }) }
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("Delete this token? This cannot be undone.")) return
     try {
       const fd = new FormData(); fd.append("tokenId", String(id))
-      await deleteToken(fd)
+      const res = await deleteToken(fd)
+      if (res.success) {
+        await onTokensChanged?.()
+      }
     } catch (e) { console.error(e); alert("Failed to delete token") }
   }
 
