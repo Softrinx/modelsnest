@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import { useState } from "react"
 
 interface Token {
-  id: number
+  id: string
   name: string
   token_prefix: string
   created_at: string

@@ -17,7 +17,7 @@ interface TokenResponse {
   message: string
   code: string
   token_info?: {
-    id: number
+    id: string
     name: string
     user_id: string
     user_email: string

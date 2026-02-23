@@ -15,7 +15,11 @@ import { Plus, Copy, Check } from "lucide-react"
 import { useState } from "react"
 import { createApiToken } from "@/app/actions/api-tokens"
 
-export function CreateTokenDialog() {
+interface CreateTokenDialogProps {
+  onTokenCreated?: () => void | Promise<void>
+}
+
+export function CreateTokenDialog({ onTokenCreated }: CreateTokenDialogProps) {
   const [open, setOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [newToken, setNewToken] = useState<string | null>(null)
@@ -27,6 +31,7 @@ export function CreateTokenDialog() {
       const result = await createApiToken(formData)
       if (result.success && typeof result.token === "string") {
         setNewToken(result.token)
+        await onTokenCreated?.()
       }
     } catch (error) {
       console.error("Failed to create token:", error)
