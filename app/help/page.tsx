@@ -55,7 +55,7 @@ export default function HelpCenterPage() {
         },
         {
           question: "How do I get technical support?",
-          answer: "For technical issues, email us at support@Modelsnest.com or use the chat widget in your dashboard. Enterprise customers get priority support with dedicated channels."
+          answer: "For technical issues, email us at modelsnest3@gmail.com or use the chat widget in your dashboard. Enterprise customers get priority support with dedicated channels."
         },
         {
           question: "Can I get a refund?",

@@ -220,11 +220,11 @@ export default function CareersPage() {
             </span>
           </div>
           <Link
-            href="mailto:careers@Modelsnest.com"
+            href="mailto:modelsnest3@gmail.com"
             className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-opacity hover:opacity-80"
             style={{ background: "var(--color-primary)", color: "#fff" }}
           >
-            careers@Modelsnest.com
+            modelsnest3@gmail.com
             <ArrowRight className="w-4 h-4" />
           </Link>
         </motion.div>

@@ -312,7 +312,7 @@ export default function CompliancePage() {
             <Panel>
               <SubLabel>Request Process</SubLabel>
               <ContactBox rows={[
-                { label: "Email",    value: "compliance@Modelsnest.com" },
+                { label: "Email",    value: "modelsnest3@gmail.com" },
                 { label: "Response", value: "2–3 business days" },
                 { label: "NDA",      value: "Required for sensitive docs" },
               ]} />
@@ -328,9 +328,9 @@ export default function CompliancePage() {
             <Panel>
               <SubLabel>Primary Contacts</SubLabel>
               <ContactBox rows={[
-                { label: "Compliance", value: "compliance@Modelsnest.com" },
-                { label: "Legal",      value: "legal@Modelsnest.com" },
-                { label: "Security",   value: "security@Modelsnest.com" },
+                { label: "Compliance", value: "modelsnest3@gmail.com" },
+                { label: "Legal",      value: "modelsnest3@gmail.com" },
+                { label: "Security",   value: "modelsnest3@gmail.com" },
               ]} />
             </Panel>
             <Panel>

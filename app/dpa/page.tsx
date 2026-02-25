@@ -390,9 +390,9 @@ export default function DataProcessingAgreement() {
             <Panel>
               <SubLabel>Primary Contacts</SubLabel>
               <ContactBox rows={[
-                { label: "Legal",      value: "legal@Modelsnest.com" },
-                { label: "DPO",        value: "dpo@Modelsnest.com" },
-                { label: "Compliance", value: "compliance@Modelsnest.com" },
+                { label: "Legal",      value: "modelsnest3@gmail.com" },
+                { label: "DPO",        value: "modelsnest3@gmail.com" },
+                { label: "Compliance", value: "modelsnest3@gmail.com" },
               ]} />
             </Panel>
             <Panel>

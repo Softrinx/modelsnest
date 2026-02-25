@@ -5,7 +5,7 @@ import { useRef } from "react"
 import Link from "next/link"
 import { useTheme } from "@/contexts/themeContext"
 import { ModelsnestLogo } from "@/components/Modelsnest-logo"
-import { Twitter, Github, Linkedin, Youtube, MessageCircle } from "lucide-react"
+import { Youtube, MessageCircle, Instagram, Mail } from "lucide-react"
 
 const sections = [
   {
@@ -47,11 +47,10 @@ const sections = [
 ]
 
 const socials = [
-  { icon: Twitter,       href: "#", label: "X / Twitter" },
-  { icon: Github,        href: "#", label: "GitHub" },
-  { icon: Linkedin,      href: "#", label: "LinkedIn" },
-  { icon: Youtube,       href: "#", label: "YouTube" },
-  { icon: MessageCircle, href: "#", label: "Discord" },
+  { icon: Mail,          href: "mailto:modelsnest3@gmail.com", label: "Email" },
+  { icon: Youtube,       href: "https://www.youtube.com/channel/UCMR4IQM1ZQ-tbGUdElOgK9g", label: "YouTube" },
+  { icon: Instagram,     href: "https://www.instagram.com/modelsnest.ai/", label: "Instagram" },
+  { icon: MessageCircle, href: "https://discord.gg/sEuW4V8K", label: "Discord" },
 ]
 
 const VCOLS = 10
@@ -158,6 +157,8 @@ export function Footer() {
                 <Link
                   key={s.label}
                   href={s.href}
+                  target={s.href.startsWith("http") ? "_blank" : undefined}
+                  rel={s.href.startsWith("http") ? "noopener noreferrer" : undefined}
                   aria-label={s.label}
                   className="transition-colors duration-150"
                   style={{ color: "var(--color-text-muted)" }}

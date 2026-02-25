@@ -120,8 +120,8 @@ export default function LegalHub() {
               <p className="text-sm text-muted-foreground">
                 Need signed copies or specific documentation?
               </p>
-              <a href="mailto:legal@Modelsnest.com" className="text-blue-500 hover:text-blue-400 text-sm font-medium">
-                legal@Modelsnest.com
+              <a href="mailto:modelsnest3@gmail.com" className="text-blue-500 hover:text-blue-400 text-sm font-medium">
+                modelsnest3@gmail.com
               </a>
             </div>
             
@@ -133,8 +133,8 @@ export default function LegalHub() {
               <p className="text-sm text-muted-foreground">
                 Questions about our compliance status?
               </p>
-              <a href="mailto:compliance@Modelsnest.com" className="text-green-500 hover:text-green-400 text-sm font-medium">
-                compliance@Modelsnest.com
+              <a href="mailto:modelsnest3@gmail.com" className="text-green-500 hover:text-green-400 text-sm font-medium">
+                modelsnest3@gmail.com
               </a>
             </div>
             
@@ -146,8 +146,8 @@ export default function LegalHub() {
               <p className="text-sm text-muted-foreground">
                 Report security issues or vulnerabilities?
               </p>
-              <a href="mailto:security@Modelsnest.com" className="text-purple-500 hover:text-purple-400 text-sm font-medium">
-                security@Modelsnest.com
+              <a href="mailto:modelsnest3@gmail.com" className="text-purple-500 hover:text-purple-400 text-sm font-medium">
+                modelsnest3@gmail.com
               </a>
             </div>
           </div>
