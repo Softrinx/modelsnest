@@ -379,7 +379,7 @@ export default function TermsOfService() {
           icon={<svg width="16" height="16" fill="none" viewBox="0 0 16 16"><rect x="2" y="4" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.25"/><path d="M2 5l6 5 6-5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/></svg>}
         >
           <p>For questions about these Terms of Service, please contact us at:</p>
-          <ContactBox rows={[{ label: "Email", value: "legal@Modelsnest.com" }, { label: "Address", value: "Nairobi, Kenya" }]} />
+          <ContactBox rows={[{ label: "Email", value: "modelsnest3@gmail.com" }, { label: "Address", value: "Nairobi, Kenya" }]} />
         </SectionRow>
 
         <div className="py-8" />

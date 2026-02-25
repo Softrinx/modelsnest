@@ -102,7 +102,7 @@ export function InvoiceDetailClient({ transaction: t }: { transaction: AdminTran
                 <p style={{ fontSize: 12, color: textSub, lineHeight: 1.9 }}>
                   123 AI Street, Suite 400<br />
                   Innoville, CA 90210<br />
-                  contact@modelsnest.com
+                  modelsnest3@gmail.com
                 </p>
               </div>
 
@@ -192,7 +192,7 @@ export function InvoiceDetailClient({ transaction: t }: { transaction: AdminTran
           {/* Footer */}
           <div style={{ padding: "20px 40px", textAlign: "center", borderTop: `1px solid ${border}` }}>
             <p style={{ fontSize: 12, color: textSub }}>
-              Thank you for your business! · Questions? Contact us at contact@modelsnest.com
+              Thank you for your business! · Questions? Contact us at modelsnest3@gmail.com
             </p>
           </div>
         </motion.div>

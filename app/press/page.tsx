@@ -31,14 +31,14 @@ const contacts = [
     title: "Press contact",
     description:
       "For press inquiries, interviews or quotes, reach out directly. We aim to respond within one business day.",
-    email: "press@Modelsnest.com",
+    email: "modelsnest3@gmail.com",
   },
   {
     icon: Palette,
     title: "Brand assets",
     description:
       "We provide logo files and brand guidelines on request. Include your organization name and intended use when reaching out.",
-    email: "brand@Modelsnest.com",
+    email: "modelsnest3@gmail.com",
   },
 ]
 

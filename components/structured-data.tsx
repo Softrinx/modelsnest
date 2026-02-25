@@ -18,8 +18,9 @@ export function StructuredData() {
       "name": "Modelsnest",
       "url": "https://Modelsnest.com",
       "sameAs": [
-        "https://twitter.com/Modelsnest",
-        "https://github.com/Modelsnest"
+        "https://www.youtube.com/channel/UCMR4IQM1ZQ-tbGUdElOgK9g",
+        "https://www.instagram.com/modelsnest.ai/",
+        "https://discord.gg/sEuW4V8K"
       ]
     },
     "featureList": [
@@ -72,14 +73,14 @@ export function OrganizationStructuredData() {
     "description": "Enterprise AI APIs built for scale with production-ready infrastructure",
     "foundingDate": "2024",
     "sameAs": [
-      "https://twitter.com/Modelsnest",
-      "https://github.com/Modelsnest",
-      "https://linkedin.com/company/Modelsnest"
+      "https://www.youtube.com/channel/UCMR4IQM1ZQ-tbGUdElOgK9g",
+      "https://www.instagram.com/modelsnest.ai/",
+      "https://discord.gg/sEuW4V8K"
     ],
     "contactPoint": {
       "@type": "ContactPoint",
       "contactType": "customer service",
-      "email": "support@Modelsnest.com"
+      "email": "modelsnest3@gmail.com"
     },
     "address": {
       "@type": "PostalAddress",

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MessageSquare, Users, Calendar, TrendingUp, Github, Twitter, Linkedin, Globe } from "lucide-react"
+import { MessageSquare, Users, Calendar, TrendingUp, Youtube, Instagram, MessageCircle, Mail } from "lucide-react"
 
 // Force dynamic rendering to prevent prerendering issues with Client Components
 export const dynamic = 'force-dynamic'
@@ -260,17 +260,25 @@ export default function CommunityPage() {
               Follow us on social media and join the conversation
             </p>
             <div className="flex justify-center gap-4">
-              <Button variant="outline" size="icon">
-                <Twitter className="w-4 h-4" />
+              <Button variant="outline" size="icon" asChild>
+                <a href="mailto:modelsnest3@gmail.com" aria-label="Email">
+                  <Mail className="w-4 h-4" />
+                </a>
               </Button>
-              <Button variant="outline" size="icon">
-                <Github className="w-4 h-4" />
+              <Button variant="outline" size="icon" asChild>
+                <a href="https://www.youtube.com/channel/UCMR4IQM1ZQ-tbGUdElOgK9g" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+                  <Youtube className="w-4 h-4" />
+                </a>
               </Button>
-              <Button variant="outline" size="icon">
-                <Linkedin className="w-4 h-4" />
+              <Button variant="outline" size="icon" asChild>
+                <a href="https://www.instagram.com/modelsnest.ai/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                  <Instagram className="w-4 h-4" />
+                </a>
               </Button>
-              <Button variant="outline" size="icon">
-                <Globe className="w-4 h-4" />
+              <Button variant="outline" size="icon" asChild>
+                <a href="https://discord.gg/sEuW4V8K" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+                  <MessageCircle className="w-4 h-4" />
+                </a>
               </Button>
             </div>
           </div>

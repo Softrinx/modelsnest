@@ -124,7 +124,7 @@ const sections = [
           style={{ border: "1px solid var(--color-border)" }}
         >
           {[
-            { label: "Email", value: "privacy@Modelsnest.com" },
+            { label: "Email", value: "modelsnest3@gmail.com" },
             { label: "Address", value: "Nairobi, Kenya" },
           ].map((row) => (
             <div key={row.label} className="flex items-center gap-3">

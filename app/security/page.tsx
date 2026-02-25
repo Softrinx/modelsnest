@@ -268,7 +268,7 @@ export default function SecurityPage() {
           icon={<Mail className="w-4 h-4" />}>
           <p>For security-related inquiries, vulnerability reports, or responsible disclosure, please contact our security team:</p>
           <ContactBox rows={[
-            { label: "Email",      value: "security@Modelsnest.com" },
+            { label: "Email",      value: "modelsnest3@gmail.com" },
             { label: "Response",   value: "Within 24 hours" },
             { label: "Bug Bounty", value: "Modelsnest.com/security/bounty" },
           ]} />
