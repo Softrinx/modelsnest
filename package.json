@@ -8,7 +8,9 @@
     "lint": "eslint app components lib hooks contexts types middleware.ts",
     "start": "next start",
     "migrate": "node scripts/run-migrations.js",
-    "migrate:billing": "node scripts/create-billing-tables.js"
+    "migrate:billing": "node scripts/create-billing-tables.js",
+    "seed:models": "node scripts/seed-model-catalog-from-hardcoded.js",
+    "seed:models:dry": "node scripts/seed-model-catalog-from-hardcoded.js --dry-run"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",

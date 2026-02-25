@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "@/contexts/themeContext"
 import { useSidebar } from "@/components/dashboard-layout-controller"
@@ -10,6 +10,7 @@ import {
   Play, Download, ChevronRight, Terminal, BookOpen,
   Bot, Mic, Video, Brain, Radio, DollarSign, Settings
 } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ModelDocsPageProps { user: DashboardUser; modelSlug: string }
@@ -1195,8 +1196,152 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
   const { sidebarWidth } = useSidebar()
   const [activeLang, setActiveLang] = useState("Python")
   const [activeSection, setActiveSection] = useState("overview")
+  const [model, setModel] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const model = MODEL_DB[modelSlug] ?? buildFallback(modelSlug)
+  useEffect(() => {
+    let isMounted = true
+
+    const loadModel = async () => {
+      setIsLoading(true)
+      try {
+        const supabase = createClient()
+        
+        // Fetch model main info
+        const { data: modelRow, error: modelError } = await supabase
+          .from("ai_models")
+          .select("id, slug, name, provider, category_slug, docs_page_color, docs_page_description")
+          .eq("slug", modelSlug)
+          .single()
+
+        if (modelError || !modelRow) {
+          throw new Error("Model not found")
+        }
+
+        // Fetch doc details
+        const { data: docRow, error: docError } = await supabase
+          .from("ai_model_docs")
+          .select("*")
+          .eq("model_id", modelRow.id)
+          .single()
+
+        if (docError) {
+          throw docError
+        }
+
+        // Fetch steps
+        const { data: stepsRows, error: stepsError } = await supabase
+          .from("ai_model_doc_steps")
+          .select("*")
+          .eq("model_id", modelRow.id)
+          .order("step_order", { ascending: true })
+
+        if (stepsError) {
+          throw stepsError
+        }
+
+        // Fetch parameters
+        const { data: paramRows, error: paramError } = await supabase
+          .from("ai_model_doc_parameters")
+          .select("*")
+          .eq("model_id", modelRow.id)
+          .order("sort_order", { ascending: true })
+
+        if (paramError) {
+          throw paramError
+        }
+
+        // Fetch examples
+        const { data: exampleRows, error: exampleError } = await supabase
+          .from("ai_model_doc_examples")
+          .select("*")
+          .eq("model_id", modelRow.id)
+          .order("language", { ascending: true })
+
+        if (exampleError) {
+          throw exampleError
+        }
+
+        // Fetch pricing
+        const { data: pricingRow, error: pricingError } = await supabase
+          .from("ai_model_pricing")
+          .select("*")
+          .eq("model_id", modelRow.id)
+          .single()
+
+        if (pricingError && pricingError.code !== "PGRST116") {
+          throw pricingError
+        }
+
+        // Build features array from docs_page_payload if available
+        let features: string[] = []
+        try {
+          if (docRow.docs_page_payload && docRow.docs_page_payload.features) {
+            features = docRow.docs_page_payload.features
+          }
+        } catch (e) {
+          // If docs_page_payload is not available, fallback to empty
+          features = []
+        }
+
+        // Build examples map
+        const examplesMap: Record<string, string> = {}
+        for (const ex of exampleRows ?? []) {
+          examplesMap[ex.language] = ex.code_example
+        }
+
+        // Build params array
+        const paramsArray = (paramRows ?? []).map(p => ({
+          name: p.param_name,
+          type: p.param_type,
+          req: p.is_required,
+          default: p.default_value ?? "—",
+          desc: p.description,
+        }))
+
+        // Build steps array
+        const stepsArray = (stepsRows ?? []).map(s => s.step_text)
+
+        const modelData = {
+          name: modelRow.name,
+          provider: modelRow.provider,
+          category: modelRow.category_slug,
+          color: modelRow.docs_page_color || "#6366f1",
+          description: modelRow.docs_page_description || "",
+          features: features,
+          steps: stepsArray,
+          endpoint: docRow.endpoint_info ? JSON.parse(typeof docRow.endpoint_info === 'string' ? docRow.endpoint_info : JSON.stringify(docRow.endpoint_info)) : { method: "POST", path: "/api/endpoint", status: "Stable" },
+          params: paramsArray,
+          response: docRow.response_schema || "{}",
+          examples: examplesMap,
+          pricing: pricingRow ? {
+            input: String(pricingRow.input_price),
+            output: String(pricingRow.output_price),
+            unit: pricingRow.price_unit || "1K tokens",
+          } : { input: "0", output: "0", unit: "1K tokens" },
+        }
+
+        if (isMounted) {
+          setModel(modelData)
+        }
+      } catch (err) {
+        console.error("Failed to load model", err)
+        if (isMounted) {
+          // Set fallback model
+          setModel(buildFallback(modelSlug))
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadModel()
+    return () => {
+      isMounted = false
+    }
+  }, [modelSlug])
 
   const bg      = isDark ? "#0d0d10" : "#f8f8f6"
   const surface = isDark ? "#111114" : "#ffffff"
@@ -1204,7 +1349,7 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
   const text     = isDark ? "#f4f4f5" : "#09090b"
   const muted    = isDark ? "#52525b" : "#a1a1aa"
   const subtext  = isDark ? "#71717a" : "#71717a"
-  const accent   = model.color
+  const accent   = model?.color || "#6366f1"
 
   const SECTIONS = [
     { id: "overview",   label: "Overview"   },
@@ -1214,11 +1359,42 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
     { id: "pricing",    label: "Pricing"    },
   ]
 
-  const CategoryIcon = model.category === "voice" ? Mic
-    : model.category === "video"         ? Video
-    : model.category === "llm"           ? Brain
-    : model.category === "livestreaming" ? Radio
+  const CategoryIcon = model?.category === "voice" ? Mic
+    : model?.category === "video"         ? Video
+    : model?.category === "llm"           ? Brain
+    : model?.category === "livestreaming" ? Radio
     : Bot
+
+  if (isLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+        <div style={{
+          width: 40, height: 40,
+          border: `2px solid ${border}`, borderTop: "2px solid var(--color-primary)",
+          borderRadius: "50%", animation: "spin 0.8s linear infinite", marginBottom: 16,
+        }} />
+        <p style={{ fontSize: 16, fontWeight: 700, color: "var(--color-primary)" }}>Loading documentation...</p>
+      </div>
+    )
+  }
+
+  if (!model) {
+    return (
+      <div style={{ minHeight: "100vh", background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+        <p style={{ fontSize: 16, fontWeight: 700, color: text }}>Model not found</p>
+        <Link href="/dashboard/models/docs" style={{ textDecoration: "none" }}>
+          <button style={{
+            marginTop: 16,
+            padding: "8px 16px", borderRadius: 8,
+            background: "var(--color-primary)", color: "#fff",
+            border: "none", cursor: "pointer", fontWeight: 600,
+          }}>
+            Back to Docs
+          </button>
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: bg, display: "flex", flexDirection: "column" }}>

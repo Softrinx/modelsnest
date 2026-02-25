@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "@/contexts/themeContext"
 import { useSidebar } from "@/components/dashboard-layout-controller"
@@ -10,6 +10,7 @@ import {
   BookOpen, Settings, Clock, LayoutGrid, List,
   ChevronRight, Activity, ArrowUpRight
 } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ModelsMainProps { user: DashboardUser }
@@ -22,44 +23,6 @@ interface Model {
   slug: string
 }
 
-const MODELS: Model[] = [
-  { id:"1",  name:"GPT-4 Turbo",      provider:"OpenAI",     category:"conversational", status:"active",      performance:98, lastUsed:"2 min ago",   slug:"gpt-4-turbo",      hasDocumentation:true,  isFavorite:true,
-    description:"Advanced conversational AI with context understanding, code generation and vision.",
-    features:["Context Memory","Multi-turn","Code Gen","Vision"] },
-  { id:"2",  name:"Claude 3 Opus",    provider:"Anthropic",  category:"conversational", status:"active",      performance:96, lastUsed:"1 hr ago",    slug:"claude-3-opus",    hasDocumentation:true,  isFavorite:false,
-    description:"High-performance model with enhanced logical reasoning and document analysis.",
-    features:["Reasoning","Doc Analysis","Creative","Safe"] },
-  { id:"3",  name:"Gemini Pro",       provider:"Google",     category:"conversational", status:"active",      performance:94, lastUsed:"30 min ago",  slug:"gemini-pro",       hasDocumentation:true,  isFavorite:false,
-    description:"Google's multimodal AI with real-time knowledge and strong cross-task performance.",
-    features:["Multimodal","Real-time","Multilingual","Safe"] },
-  { id:"4",  name:"Whisper V3",       provider:"OpenAI",     category:"voice",          status:"active",      performance:97, lastUsed:"5 min ago",   slug:"whisper-v3",       hasDocumentation:true,  isFavorite:true,
-    description:"State-of-the-art speech recognition with noise reduction and 99 language support.",
-    features:["99 Languages","Noise Reduction","Timestamps","Real-time"] },
-  { id:"5",  name:"ElevenLabs Pro",   provider:"ElevenLabs", category:"voice",          status:"active",      performance:95, lastUsed:"2 hr ago",    slug:"elevenlabs-pro",   hasDocumentation:true,  isFavorite:false,
-    description:"Hyper-realistic text-to-speech with voice cloning and emotion synthesis.",
-    features:["Voice Cloning","Emotion","29 Languages","Custom"] },
-  { id:"6",  name:"Runway Gen-3",     provider:"Runway",     category:"video",          status:"active",      performance:93, lastUsed:"1 day ago",   slug:"runway-gen-3",     hasDocumentation:true,  isFavorite:false,
-    description:"Professional video generation with granular motion control and cinematic output.",
-    features:["Text-to-Video","Motion Control","4K","Style"] },
-  { id:"7",  name:"Pika Labs",        provider:"Pika",       category:"video",          status:"maintenance", performance:89, lastUsed:"3 days ago",  slug:"pika-labs",        hasDocumentation:true,  isFavorite:true,
-    description:"Creative video generation with artistic style control and seamless animation.",
-    features:["Artistic","Animation","Scene Gen","Prompts"] },
-  { id:"8",  name:"Llama 3 70B",      provider:"Meta",       category:"llm",            status:"active",      performance:92, lastUsed:"4 hr ago",    slug:"llama-3-70b",      hasDocumentation:true,  isFavorite:false,
-    description:"Meta's open-source flagship with strong reasoning, coding and instruction following.",
-    features:["Open Source","Custom Training","Efficient","Community"] },
-  { id:"9",  name:"Mistral Large",    provider:"Mistral",    category:"llm",            status:"active",      performance:91, lastUsed:"6 hr ago",    slug:"mistral-large",    hasDocumentation:true,  isFavorite:false,
-    description:"High-performance European LLM with exceptional multilingual and code capabilities.",
-    features:["Multilingual","Code Gen","Reasoning","Efficient"] },
-  { id:"10", name:"StreamAI Pro",     provider:"Modelsnest",  category:"livestreaming",  status:"active",      performance:96, lastUsed:"1 min ago",   slug:"streamai-pro",     hasDocumentation:true,  isFavorite:true,
-    description:"Real-time AI processing for live streaming — moderation, engagement and analytics.",
-    features:["Real-time","Moderation","Analytics","Live Chat"] },
-  { id:"11", name:"LiveChat AI",      provider:"Modelsnest",  category:"livestreaming",  status:"inactive",    performance:85, lastUsed:"1 week ago",  slug:"livechat-ai",      hasDocumentation:true,  isFavorite:false,
-    description:"AI-powered live chat moderation with spam detection and sentiment analysis.",
-    features:["Chat Mod","Spam Detection","Sentiment","Auto-Replies"] },
-  { id:"12", name:"Neural Vision Pro",provider:"Modelsnest",  category:"video",          status:"inactive",    performance:78, lastUsed:"2 weeks ago", slug:"neural-vision-pro",hasDocumentation:false, isFavorite:false,
-    description:"Advanced computer vision for image recognition and scene understanding.",
-    features:["Object Detection","Classification","Facial Rec","Scene"] },
-]
 
 const CATEGORIES = [
   { id:"all",            label:"All",           icon: Zap,    color:"#a1a1aa" },
@@ -95,8 +58,10 @@ export function ModelsMain({ user }: ModelsMainProps) {
   const { sidebarWidth } = useSidebar()
   const [cat, setCat]       = useState("all")
   const [view, setView]     = useState<"grid"|"list">("grid")
-  const [favs, setFavs]     = useState<Set<string>>(new Set(MODELS.filter(m => m.isFavorite).map(m => m.id)))
+  const [models, setModels] = useState<Model[]>([])
+  const [favs, setFavs]     = useState<Set<string>>(new Set())
   const [hovered, setHovered] = useState<string|null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   const bg      = isDark ? "#0d0d10" : "#f8f8f6"
   const surface = isDark ? "#111114" : "#ffffff"
@@ -105,8 +70,85 @@ export function ModelsMain({ user }: ModelsMainProps) {
   const muted    = isDark ? "#52525b" : "#a1a1aa"
   const subtext  = isDark ? "#71717a" : "#71717a"
 
-  const filtered = MODELS.filter(m => cat === "all" || m.category === cat)
-  const active   = MODELS.filter(m => m.status === "active").length
+  useEffect(() => {
+    let isMounted = true
+
+    const loadModels = async () => {
+      setIsLoading(true)
+      try {
+        const supabase = createClient()
+        const { data: modelRows, error } = await supabase
+          .from("ai_models")
+          .select("id, slug, name, provider, category_slug, status, performance, last_used_label, is_favorite_default, has_documentation, card_description")
+          .order("sort_order", { ascending: true })
+
+        if (error) {
+          throw error
+        }
+
+        const ids = modelRows?.map(row => row.id).filter(Boolean) ?? []
+        const featuresByModel = new Map<string, string[]>()
+
+        if (ids.length > 0) {
+          const { data: featureRows, error: featureError } = await supabase
+            .from("ai_model_features")
+            .select("model_id, feature_text, sort_order")
+            .in("model_id", ids)
+            .eq("source", "models_page")
+            .order("sort_order", { ascending: true })
+
+          if (featureError) {
+            throw featureError
+          }
+
+          for (const feature of featureRows ?? []) {
+            const current = featuresByModel.get(feature.model_id) ?? []
+            current.push(feature.feature_text)
+            featuresByModel.set(feature.model_id, current)
+          }
+        }
+
+        const mapped = (modelRows ?? []).map(row => ({
+          id: row.id,
+          name: row.name,
+          provider: row.provider,
+          category: row.category_slug,
+          status: row.status,
+          performance: row.performance ?? 0,
+          lastUsed: row.last_used_label ?? "—",
+          description: row.card_description ?? "",
+          features: featuresByModel.get(row.id) ?? [],
+          isFavorite: Boolean(row.is_favorite_default),
+          hasDocumentation: Boolean(row.has_documentation),
+          slug: row.slug,
+        }))
+
+        if (isMounted) {
+          setModels(mapped)
+          if (favs.size === 0) {
+            setFavs(new Set(mapped.filter(m => m.isFavorite).map(m => m.id)))
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load models", err)
+        if (isMounted) {
+          setModels([])
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadModels()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const filtered = models.filter(m => cat === "all" || m.category === cat)
+  const active   = models.filter(m => m.status === "active").length
 
   const perfColor = (p: number) => p >= 95 ? "#10b981" : p >= 90 ? "#f59e0b" : "#ef4444"
 
@@ -150,7 +192,7 @@ export function ModelsMain({ user }: ModelsMainProps) {
             {/* Stats strip */}
             <div style={{ display:"flex", gap:1, background:border, flexShrink:0 }}>
               {[
-                { n: MODELS.length.toString(),   l:"Total" },
+                { n: models.length.toString(),   l:"Total" },
                 { n: active.toString(),           l:"Active" },
                 { n: favs.size.toString(),        l:"Favourites" },
                 { n: "99.9%",                     l:"Uptime" },
@@ -186,7 +228,7 @@ export function ModelsMain({ user }: ModelsMainProps) {
                     <c.icon size={13} />
                     <span className="hidden sm:inline">{c.label}</span>
                     <span style={{ fontSize:10, fontFamily:"monospace", color: active ? "rgba(255,255,255,0.65)" : muted }}>
-                      {c.id === "all" ? MODELS.length : MODELS.filter(m=>m.category===c.id).length}
+                      {c.id === "all" ? models.length : models.filter(m=>m.category===c.id).length}
                     </span>
                   </button>
                 )
@@ -225,7 +267,7 @@ export function ModelsMain({ user }: ModelsMainProps) {
       <div style={{ flex:1, padding:"32px 48px", overflowY:"auto" }}>
         <div style={{ marginBottom:18, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <span style={{ fontSize:12, fontWeight:600, color:muted }}>
-            {filtered.length} model{filtered.length!==1?"s":""}{cat!=="all" ? ` · ${CATEGORIES.find(c=>c.id===cat)?.label}` : ""}
+            {isLoading ? "Loading models..." : `${filtered.length} model${filtered.length!==1?"s":""}${cat!=="all" ? ` · ${CATEGORIES.find(c=>c.id===cat)?.label}` : ""}`}
           </span>
         </div>
 
