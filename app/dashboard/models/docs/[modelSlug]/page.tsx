@@ -12,5 +12,6 @@ interface ModelDocsPageProps {
 
 export default async function ModelDocsPageRoute({ params }: ModelDocsPageProps) {
   const user = await requireAuth()
-  return <ModelDocsPage user={user} modelSlug={params.modelSlug} />
+  const { modelSlug } = await params
+  return <ModelDocsPage user={user} modelSlug={modelSlug} />
 }

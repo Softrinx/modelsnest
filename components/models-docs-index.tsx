@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "@/contexts/themeContext"
 import { useSidebar } from "@/components/dashboard-layout-controller"
@@ -10,6 +10,7 @@ import {
   BookOpen, Code2, ArrowRight, ExternalLink, CreditCard,
   ChevronRight, Sparkles
 } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ModelsDocsIndexProps { user: DashboardUser }
@@ -20,49 +21,6 @@ interface ModelDoc {
   pricing: { input: string; output: string; unit: string }
   badge?: string
 }
-
-const MODELS: ModelDoc[] = [
-  { slug: "gpt-4-turbo",    name: "GPT-4 Turbo",    provider: "OpenAI",    category: "conversational", badge: "Popular",
-    description: "Advanced conversational AI with deep context understanding, code generation and creative writing.",
-    features: ["Context Memory", "Multi-turn", "Code Gen", "Vision"],
-    pricing: { input: "0.010", output: "0.030", unit: "1K tokens" } },
-  { slug: "claude-3-opus",  name: "Claude 3 Opus",  provider: "Anthropic", category: "conversational",
-    description: "High-performance model with enhanced logical reasoning, document analysis and problem solving.",
-    features: ["Reasoning", "Doc Analysis", "Creative", "Safe"],
-    pricing: { input: "0.015", output: "0.075", unit: "1K tokens" } },
-  { slug: "gemini-pro",     name: "Gemini Pro",     provider: "Google",    category: "conversational", badge: "New",
-    description: "Google's multimodal AI with real-time knowledge integration and strong cross-task performance.",
-    features: ["Multimodal", "Real-time", "Multilingual", "Safe"],
-    pricing: { input: "0.0025", output: "0.010", unit: "1K tokens" } },
-  { slug: "whisper-v3",     name: "Whisper V3",     provider: "OpenAI",    category: "voice",
-    description: "State-of-the-art speech recognition with noise reduction and 99 language support.",
-    features: ["99 Languages", "Noise Reduction", "Timestamps", "Real-time"],
-    pricing: { input: "0.006", output: "0.000", unit: "minute" } },
-  { slug: "elevenlabs-pro", name: "ElevenLabs Pro", provider: "ElevenLabs", category: "voice", badge: "Popular",
-    description: "Hyper-realistic text-to-speech with voice cloning and emotion synthesis.",
-    features: ["Voice Cloning", "Emotion", "29 Languages", "Custom"],
-    pricing: { input: "0.0005", output: "0.000", unit: "character" } },
-  { slug: "runway-gen-3",   name: "Runway Gen-3",   provider: "Runway",    category: "video",
-    description: "Professional video generation with granular motion control and cinematic output.",
-    features: ["Text-to-Video", "Motion Control", "4K", "Style"],
-    pricing: { input: "0.050", output: "0.000", unit: "second" } },
-  { slug: "pika-labs",      name: "Pika Labs",      provider: "Pika",      category: "video", badge: "New",
-    description: "Creative video generation with artistic style control and seamless animation.",
-    features: ["Artistic Styles", "Animation", "Scene Gen", "Prompts"],
-    pricing: { input: "0.080", output: "0.000", unit: "second" } },
-  { slug: "llama-3-70b",   name: "Llama 3 70B",    provider: "Meta",      category: "llm", badge: "Open Source",
-    description: "Meta's open-source flagship with strong reasoning, coding and instruction following.",
-    features: ["Open Source", "Custom Training", "Efficient", "Community"],
-    pricing: { input: "0.0008", output: "0.0008", unit: "1K tokens" } },
-  { slug: "mistral-large",  name: "Mistral Large",  provider: "Mistral",   category: "llm",
-    description: "High-performance European LLM with exceptional multilingual and code capabilities.",
-    features: ["Multilingual", "Code Gen", "Reasoning", "Efficient"],
-    pricing: { input: "0.0012", output: "0.0036", unit: "1K tokens" } },
-  { slug: "streamai-pro",   name: "StreamAI Pro",   provider: "Modelsnest", category: "livestreaming", badge: "Exclusive",
-    description: "Real-time AI processing built for live streaming — moderation, engagement and analytics.",
-    features: ["Real-time", "Moderation", "Analytics", "Live Chat"],
-    pricing: { input: "0.020", output: "0.000", unit: "minute" } },
-]
 
 const CATEGORIES = [
   { id: "all",            label: "All",           icon: Zap,    color: "#a1a1aa" },
@@ -88,6 +46,96 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
   const [query, setQuery]   = useState("")
   const [cat, setCat]       = useState("all")
   const [hovered, setHovered] = useState<string | null>(null)
+  const [models, setModels] = useState<ModelDoc[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadModels = async () => {
+      setIsLoading(true)
+      try {
+        const supabase = createClient()
+        const { data: modelRows, error } = await supabase
+          .from("ai_models")
+          .select("id, slug, name, provider, category_slug, badge, docs_index_description")
+          .order("sort_order", { ascending: true })
+
+        if (error) {
+          throw error
+        }
+
+        const ids = modelRows?.map(row => row.id).filter(Boolean) ?? []
+        const featuresByModel = new Map<string, string[]>()
+        const pricingByModel = new Map<string, any>()
+
+        if (ids.length > 0) {
+          const { data: featureRows, error: featureError } = await supabase
+            .from("ai_model_features")
+            .select("model_id, feature_text, sort_order")
+            .in("model_id", ids)
+            .eq("source", "docs_index")
+            .order("sort_order", { ascending: true })
+
+          if (featureError) {
+            throw featureError
+          }
+
+          for (const feature of featureRows ?? []) {
+            const current = featuresByModel.get(feature.model_id) ?? []
+            current.push(feature.feature_text)
+            featuresByModel.set(feature.model_id, current)
+          }
+
+          const { data: pricingRows, error: pricingError } = await supabase
+            .from("ai_model_pricing")
+            .select("model_id, input_price, output_price, price_unit")
+            .in("model_id", ids)
+
+          if (pricingError) {
+            throw pricingError
+          }
+
+          for (const pricing of pricingRows ?? []) {
+            pricingByModel.set(pricing.model_id, {
+              input: String(pricing.input_price),
+              output: String(pricing.output_price),
+              unit: pricing.price_unit ?? "1K tokens",
+            })
+          }
+        }
+
+        const mapped = (modelRows ?? []).map(row => ({
+          slug: row.slug,
+          name: row.name,
+          provider: row.provider,
+          category: row.category_slug,
+          description: row.docs_index_description ?? "",
+          features: featuresByModel.get(row.id) ?? [],
+          pricing: pricingByModel.get(row.id) ?? { input: "0", output: "0", unit: "1K tokens" },
+          ...(row.badge ? { badge: row.badge } : {}),
+        }))
+
+        if (isMounted) {
+          setModels(mapped)
+        }
+      } catch (err) {
+        console.error("Failed to load models", err)
+        if (isMounted) {
+          setModels([])
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadModels()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const bg      = isDark ? "#0d0d10" : "#f8f8f6"
   const surface = isDark ? "#111114" : "#ffffff"
@@ -96,7 +144,7 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
   const muted    = isDark ? "#52525b" : "#a1a1aa"
   const subtext  = isDark ? "#71717a" : "#71717a"
 
-  const filtered = MODELS.filter(m =>
+  const filtered = models.filter(m =>
     (cat === "all" || m.category === cat) &&
     (m.name.toLowerCase().includes(query.toLowerCase()) ||
      m.description.toLowerCase().includes(query.toLowerCase()))
@@ -168,7 +216,7 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
             {/* Stats row */}
             <div style={{ display: "flex", gap: 1, background: border }}>
               {[
-                { n: MODELS.length.toString(), l: "Models" },
+                { n: models.length.toString(), l: "Models" },
                 { n: "5", l: "Categories" },
                 { n: "99.9%", l: "Uptime" },
               ].map(s => (
@@ -222,7 +270,7 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
                       fontSize: 10, fontWeight: 700, fontFamily: "monospace",
                       color: active ? "rgba(255,255,255,0.7)" : muted,
                     }}>
-                      {c.id === "all" ? MODELS.length : MODELS.filter(m => m.category === c.id).length}
+                      {c.id === "all" ? models.length : models.filter(m => m.category === c.id).length}
                     </span>
                   </button>
                 )
@@ -235,12 +283,23 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
       {/* ── MODELS GRID ── */}
       <div style={{ flex: 1, padding: "36px 48px", overflowY: "auto" }}>
 
-        {/* Result count */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-          <span style={{ fontSize: 12, color: muted, fontWeight: 600 }}>
-            {filtered.length} model{filtered.length !== 1 ? "s" : ""} {cat !== "all" ? `in ${CATEGORIES.find(c => c.id === cat)?.label}` : ""}
-          </span>
-        </div>
+        {isLoading ? (
+          <div style={{ textAlign: "center", padding: "80px 0" }}>
+            <div style={{
+              width: 40, height: 40, margin: "0 auto 16px",
+              border: `2px solid ${border}`, borderTop: "2px solid var(--color-primary)",
+              borderRadius: "50%", animation: "spin 0.8s linear infinite",
+            }} />
+            <p style={{ fontSize: 16, fontWeight: 700, color: "var(--color-primary)" }}>Loading models...</p>
+          </div>
+        ) : (
+          <>
+            {/* Result count */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <span style={{ fontSize: 12, color: muted, fontWeight: 600 }}>
+                {filtered.length} model{filtered.length !== 1 ? "s" : ""} {cat !== "all" ? `in ${CATEGORIES.find(c => c.id === cat)?.label}` : ""}
+              </span>
+            </div>
 
         <AnimatePresence mode="wait">
           {filtered.length === 0 ? (
@@ -373,6 +432,8 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
             </motion.div>
           )}
         </AnimatePresence>
+          </>
+        )}
 
         {/* Quick links strip */}
         <div style={{ marginTop: 40, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: border }}>
