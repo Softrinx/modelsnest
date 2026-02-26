@@ -323,9 +323,65 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
+## AI Models tables
+
+The model catalog is stored in PostgreSQL and powers:
+- model cards in the dashboard
+- category filters
+- docs index + model-specific docs pages
+- billing logic by model/unit
+
+Each model is represented as one row in `ai_models`, then related rows in the companion tables add features, pricing, and documentation details.
+
+### Core catalog tables
+
+| Table | Purpose | Key columns |
+|---|---|---|
+| `ai_model_categories` | Model category metadata used in UI filters and tags | `slug`, `name`, `short_name`, `display_order`, `color`, `icon_name` |
+| `ai_models` | Primary model registry | `slug`, `name`, `provider`, `category_slug`, `status`, `is_active`, `performance`, `has_documentation`, `sort_order` |
+| `ai_model_features` | Feature bullets per model and page context | `model_id`, `source` (`models_page`, `docs_index`, `docs_page`), `feature_text`, `sort_order` |
+| `ai_model_pricing` | Billing config per model | `model_id`, `input_price`, `output_price`, `price_unit`, `currency` |
+
+- `ai_model_categories`: one row per category (text, image, audio, video, etc.), including display metadata for UI.
+- `ai_models`: one row per model slug (for example `deepseek`, `midjourney-v5`) and activation state.
+- `ai_model_features`: multiple rows per model for feature bullets shown in different UI surfaces.
+- `ai_model_pricing`: one or more rows per model for billing rates and units (`1k tokens`, `second`, `image`, etc.).
+
+### Docs tables
+
+| Table | Purpose | Key columns |
+|---|---|---|
+| `ai_model_docs` | Top-level docs entry for each model | `model_id`, `docs_description`, `endpoint_method`, `endpoint_path`, `endpoint_status`, `response_example` |
+| `ai_model_doc_steps` | Quick-start steps shown on docs pages | `model_id`, `step_order`, `step_text` |
+| `ai_model_doc_parameters` | Parameter reference rows | `model_id`, `param_name`, `param_type`, `is_required`, `default_value`, `description` |
+| `ai_model_doc_examples` | Language-specific code examples | `model_id`, `language`, `code_example`, `sort_order` |
+
+- `ai_model_docs`: one canonical API-doc summary per model.
+- `ai_model_doc_steps`: ordered quick-start steps rendered in docs UI.
+- `ai_model_doc_parameters`: typed request parameter metadata for docs tables.
+- `ai_model_doc_examples`: code snippets per language/runtime.
+
+### Notes on seeding and consistency
+
+- Schema setup: `scripts/009_create_model_catalog_tables.sql`
+- Seed data: `scripts/seed-model-catalog.sql`
+- API routes use these tables for model activation checks and billing unit/rate lookup.
+- Keep `ai_model_docs.endpoint_path` and `docs_index_payload.quick_start` aligned with implemented routes under `app/api/v1/**`.
+
+
 ## API Usage
 
 This project exposes an OpenAI‑style API surface on top of Novita, secured with **user API tokens** and billed against **user credits**.
+
+### Endpoint map
+
+| Capability | Endpoint | Billing unit(s) |
+|---|---|---|
+| Chat completions | `POST /api/v1/chat/completions` | token-based (`1k tokens` variants) |
+| Audio transcription | `POST /api/v1/audio/transcriptions` | `minute` or `second` |
+| Text-to-speech | `POST /api/v1/text-to-speech` | `character` or `1k chars` variants |
+| Video generation | `POST /api/v1/video/generations` | `second` |
+| Image generation | `POST /api/v1/images/generate` | `image` |
 
 ### Authentication
 
@@ -359,7 +415,7 @@ In production, replace with your deployed domain (for example `https://modelsnes
 
 ```json
 {
-  "model": "deepseek-v3.2",
+  "model": "deepseek",
   "messages": [
     { "role": "system", "content": "You are a helpful assistant." },
     { "role": "user", "content": "Explain the history of computers." }
@@ -372,7 +428,7 @@ In production, replace with your deployed domain (for example `https://modelsnes
 - `model` must match a slug in the `ai_models` catalog.
 - The route:
   - Ensures the model is **active** in `ai_models`.
-  - Loads per‑model pricing from `ai_model_pricing` where `price_unit = '1K tokens'`, `currency = 'USD'`.
+  - Loads per‑model pricing from `ai_model_pricing` where price unit is token-based (`1k tokens` variants), `currency = 'USD'`.
   - Computes cost from `usage.total_tokens` and deducts credits via `credit_transactions` + triggers.
 
 **Response (truncated)**
@@ -381,7 +437,7 @@ In production, replace with your deployed domain (for example `https://modelsnes
 {
   "id": "chatcmpl-...",
   "object": "chat.completion",
-  "model": "deepseek-v3.2",
+  "model": "deepseek/deepseek-v3-0324",
   "choices": [
     {
       "index": 0,
@@ -398,10 +454,10 @@ In production, replace with your deployed domain (for example `https://modelsnes
     "cost_usd": 0.0001,
     "price_per_1k_tokens_usd": 0.0004,
     "catalog_pricing": {
-      "slug": "deepseek-v3.2",
+      "slug": "deepseek",
       "input_price": 0.000269,
       "output_price": 0.0004,
-      "price_unit": "1K tokens"
+      "price_unit": "1k tokens"
     }
   }
 }
@@ -420,16 +476,15 @@ If the **billing transaction insert fails**, the API returns **500** and does **
 
 **Form fields**
 
-- `file`: the audio file (mp3, wav, etc.).
-- `model`: catalog slug for the transcription model (for example `whisper-v3`).
+- `model`: catalog slug for the transcription model (for example `whisper-1`).
 - `duration_seconds`: total audio duration in seconds (used for billing).
 
 **Billing logic**
 
-- Uses `ai_model_pricing` where `price_unit = 'minute'`, `currency = 'USD'`.
+- Uses `ai_model_pricing` where `price_unit` is either `minute` or `second`, `currency = 'USD'`.
 - Calculates:
-  - `minutes = duration_seconds / 60`
-  - `cost = minutes * perMinutePrice`
+  - if unit is `minute`: `cost = (duration_seconds / 60) * unitPrice`
+  - if unit is `second`: `cost = duration_seconds * unitPrice`
 - Inserts a `usage` transaction and `usage_logs` entry; returns **402** if credits are too low.
 
 _Note: currently this endpoint validates and bills the request and returns JSON with `billing` info. It is the integration point to plug in Novita’s audio API._
@@ -447,7 +502,7 @@ _Note: currently this endpoint validates and bills the request and returns JSON 
 
 ```json
 {
-  "model": "elevenlabs-pro",
+  "model": "elevenlabs-v3",
   "text": "Welcome to Modelsnest. Your AI infrastructure, supercharged."
 }
 ```
@@ -456,8 +511,10 @@ _Note: currently this endpoint validates and bills the request and returns JSON 
 
 **Billing logic**
 
-- Uses `ai_model_pricing` where `price_unit = 'character'`, `currency = 'USD'`.
-- Calculates: `cost = characters_billed * perCharacterPrice`.
+- Uses `ai_model_pricing` where `price_unit` is either `character` or `1k chars` variants, `currency = 'USD'`.
+- Calculates:
+  - if unit is `character`: `cost = characters_billed * unitPrice`
+  - if unit is `1k chars`: `cost = (characters_billed / 1000) * unitPrice`
 - Records a `usage` transaction and `usage_logs` row, then returns a JSON acknowledgment including `cost_usd`.
 
 _Note: this endpoint currently stubs the provider call; it is the place to integrate Novita’s TTS._
@@ -487,6 +544,38 @@ _Note: this endpoint currently stubs the provider call; it is the place to integ
 - Validates credits, records a `usage` transaction and `usage_logs` entry, and returns JSON with `cost_usd`.
 
 _Note: this endpoint is a billing + validation shell for video generation; plug in the provider call here._
+
+---
+
+### Image generations
+
+- **Endpoint**: `POST /api/v1/images/generate`
+- **Headers**:
+  - `Authorization: Bearer ptr_YOUR_API_TOKEN`
+  - `Content-Type: application/json`
+
+**Request body**
+
+```json
+{
+  "model": "midjourney-v5",
+  "prompt": "A cinematic sunset over mountains",
+  "num_images": 1,
+  "width": 1024,
+  "height": 1024
+}
+```
+
+- `model` and `prompt` are required.
+- `num_images` (or `n`) is optional, defaults to `1`, and is validated to `1..10`.
+
+**Billing logic**
+
+- Uses `ai_model_pricing` where `price_unit = 'image'`, `currency = 'USD'`.
+- Calculates: `cost = image_count * perImagePrice`.
+- Validates credits, records `credit_transactions` + `usage_logs`, and returns JSON with `billing.cost_usd`.
+
+_Note: this endpoint currently validates and bills, and returns an accepted response shell for provider integration._
 
 ---
 
