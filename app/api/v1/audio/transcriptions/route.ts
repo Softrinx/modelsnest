@@ -99,12 +99,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (pricingRow.currency !== "USD" || pricingRow.price_unit !== "minute") {
+    const normalizedPriceUnit = String(pricingRow.price_unit ?? "").trim().toLowerCase()
+    const isPerMinute = normalizedPriceUnit === "minute" || normalizedPriceUnit === "min" || normalizedPriceUnit === "minutes"
+    const isPerSecond = normalizedPriceUnit === "second" || normalizedPriceUnit === "sec" || normalizedPriceUnit === "seconds"
+
+    if (pricingRow.currency !== "USD" || (!isPerMinute && !isPerSecond)) {
       return NextResponse.json(
         {
           error: "Unsupported pricing unit",
           code: "UNSUPPORTED_UNIT",
-          message: "Transcription endpoint expects models priced per minute in USD.",
+          message: "Transcription endpoint expects models priced per minute or per second in USD.",
         },
         { status: 500 },
       )
@@ -125,23 +129,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const minutes = durationSeconds / 60
-    const perMinute = Math.max(
+    const unitPrice = Math.max(
       Number(pricingRow.input_price ?? 0),
       Number(pricingRow.output_price ?? 0),
       0,
     )
 
-    if (!Number.isFinite(perMinute) || perMinute <= 0) {
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       return NextResponse.json(
         {
           error: "Invalid pricing configuration",
           code: "INVALID_PRICING",
-          message: "Model pricing is not configured with a positive per-minute rate.",
+          message: "Model pricing is not configured with a positive rate.",
         },
         { status: 500 },
       )
     }
+
+    const minutes = durationSeconds / 60
+    const cost = isPerSecond ? durationSeconds * unitPrice : minutes * unitPrice
 
     const { data: creditsRow, error: creditsError } = await adminSupabase
       .from("user_credits")
@@ -174,8 +180,6 @@ export async function POST(request: NextRequest) {
         { status: 402 },
       )
     }
-
-    const cost = minutes * perMinute
 
     if (!Number.isFinite(cost) || cost <= 0) {
       return NextResponse.json(
@@ -233,7 +237,8 @@ export async function POST(request: NextRequest) {
         model_slug: requestedModelSlug,
         duration_seconds: durationSeconds,
         minutes_billed: minutes,
-        price_per_minute_usd: perMinute,
+        pricing_unit: pricingRow.price_unit,
+        unit_price_usd: unitPrice,
       },
     })
 
@@ -267,7 +272,8 @@ export async function POST(request: NextRequest) {
       message: "Transcription request accepted (provider integration not yet implemented).",
       billing: {
         cost_usd: cost,
-        price_per_minute_usd: perMinute,
+        pricing_unit: pricingRow.price_unit,
+        unit_price_usd: unitPrice,
       },
     })
   } catch (error) {

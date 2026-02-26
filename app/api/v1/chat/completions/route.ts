@@ -4,6 +4,9 @@ import { verifyApiToken } from "@/app/actions/api-tokens"
 import { createAdminClient } from "@/lib/supabase/server"
 
 const DEFAULT_PRICE_PER_1K_TOKENS_USD = 0.001
+const PROVIDER_MODEL_BY_SLUG: Record<string, string> = {
+  deepseek: "deepseek/deepseek-v3-0324",
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -124,18 +127,27 @@ export async function POST(request: NextRequest) {
 
       if (pricingError) {
         console.error("Error loading model pricing:", pricingError)
-      } else if (pricingRow && pricingRow.price_unit === "1K tokens" && pricingRow.currency === "USD") {
-        const inputPrice = Number(pricingRow.input_price ?? 0)
-        const outputPrice = Number(pricingRow.output_price ?? 0)
-        const maxPrice = Math.max(inputPrice, outputPrice, 0)
+      } else if (pricingRow && pricingRow.currency === "USD") {
+        const normalizedUnit = String(pricingRow.price_unit ?? "").trim().toLowerCase()
+        const isPerThousandTokens =
+          normalizedUnit === "1k tokens" ||
+          normalizedUnit === "1k token" ||
+          normalizedUnit === "1000 tokens" ||
+          normalizedUnit === "1000 token"
 
-        if (Number.isFinite(maxPrice) && maxPrice > 0) {
-          pricePer1kTokensUsd = maxPrice
-          pricingMeta = {
-            slug: catalogModel.slug,
-            input_price: inputPrice,
-            output_price: outputPrice,
-            price_unit: pricingRow.price_unit,
+        if (isPerThousandTokens) {
+          const inputPrice = Number(pricingRow.input_price ?? 0)
+          const outputPrice = Number(pricingRow.output_price ?? 0)
+          const maxPrice = Math.max(inputPrice, outputPrice, 0)
+
+          if (Number.isFinite(maxPrice) && maxPrice > 0) {
+            pricePer1kTokensUsd = maxPrice
+            pricingMeta = {
+              slug: catalogModel.slug,
+              input_price: inputPrice,
+              output_price: outputPrice,
+              price_unit: pricingRow.price_unit,
+            }
           }
         }
       }
@@ -174,9 +186,10 @@ export async function POST(request: NextRequest) {
     }
 
     const client = new NovitaAI(apiKey)
+    const providerModel = PROVIDER_MODEL_BY_SLUG[requestedModelSlug] ?? requestedModelSlug
 
     const completion = await client.createChatCompletion({
-      model: requestedModelSlug,
+      model: providerModel,
       messages: messages as any,
       max_tokens,
       temperature,

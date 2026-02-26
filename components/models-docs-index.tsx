@@ -1,14 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ComponentType, type CSSProperties } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "@/contexts/themeContext"
 import { useSidebar } from "@/components/dashboard-layout-controller"
 import Link from "next/link"
 import {
-  Search, Bot, Mic, Video, Brain, Radio, Zap,
+  Search, Bot, Mic, Video, Zap, Type, Image as ImageIcon, Volume2,
   BookOpen, Code2, ArrowRight, ExternalLink, CreditCard,
-  ChevronRight, Sparkles
+  ChevronRight
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { DashboardUser } from "@/types/dashboard-user"
@@ -22,18 +22,41 @@ interface ModelDoc {
   badge?: string
 }
 
-const CATEGORIES = [
-  { id: "all",            label: "All",           icon: Zap,    color: "#a1a1aa" },
-  { id: "conversational", label: "Conversational", icon: Bot,    color: "#6366f1" },
-  { id: "voice",          label: "Voice",          icon: Mic,    color: "#10b981" },
-  { id: "video",          label: "Video",          icon: Video,  color: "#f59e0b" },
-  { id: "llm",            label: "LLMs",           icon: Brain,  color: "#06b6d4" },
-  { id: "livestreaming",  label: "Live",           icon: Radio,  color: "#ec4899" },
-]
+interface CategoryFilter {
+  id: string
+  label: string
+  icon: ComponentType<{ size?: number; style?: CSSProperties }>
+  color: string
+}
 
-const CAT_COLORS: Record<string, string> = {
-  conversational: "#6366f1", voice: "#10b981",
-  video: "#f59e0b", llm: "#06b6d4", livestreaming: "#ec4899",
+const DEFAULT_CATEGORY_COLOR = "#a1a1aa"
+
+const resolveCategoryIcon = (iconName?: string) => {
+  const normalized = (iconName ?? "").toLowerCase()
+  if (normalized.includes("text") || normalized.includes("type")) return Type
+  if (normalized.includes("image") || normalized.includes("photo")) return ImageIcon
+  if (normalized.includes("video") || normalized.includes("videocam")) return Video
+  if (normalized.includes("volume") || normalized.includes("voice") || normalized.includes("tts")) return Volume2
+  if (normalized.includes("record") || normalized.includes("mic") || normalized.includes("transcription") || normalized.includes("stt")) return Mic
+  if (normalized.includes("chat") || normalized.includes("bot") || normalized.includes("llm")) return Bot
+  return Bot
+}
+
+const CategoryIcon = ({
+  category,
+  categoriesById,
+  size = 16,
+  color,
+}: {
+  category: string
+  categoriesById: Map<string, CategoryFilter>
+  size?: number
+  color?: string
+}) => {
+  const meta = categoriesById.get(category)
+  const Icon = meta?.icon ?? Bot
+  const iconColor = color ?? meta?.color ?? DEFAULT_CATEGORY_COLOR
+  return <Icon size={size} style={{ color: iconColor }} />
 }
 
 const BADGE_COLORS: Record<string, string> = {
@@ -45,6 +68,9 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
   const { sidebarWidth } = useSidebar()
   const [query, setQuery]   = useState("")
   const [cat, setCat]       = useState("all")
+  const [categories, setCategories] = useState<CategoryFilter[]>([
+    { id: "all", label: "All", icon: Zap, color: DEFAULT_CATEGORY_COLOR },
+  ])
   const [hovered, setHovered] = useState<string | null>(null)
   const [models, setModels] = useState<ModelDoc[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -56,6 +82,15 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
       setIsLoading(true)
       try {
         const supabase = createClient()
+        const { data: categoryRows, error: categoriesError } = await supabase
+          .from("ai_model_categories")
+          .select("slug, name, short_name, color, icon_name")
+          .order("display_order", { ascending: true })
+
+        if (categoriesError) {
+          throw categoriesError
+        }
+
         const { data: modelRows, error } = await supabase
           .from("ai_models")
           .select("id, slug, name, provider, category_slug, badge, docs_index_description")
@@ -116,7 +151,18 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
           ...(row.badge ? { badge: row.badge } : {}),
         }))
 
+        const mappedCategories: CategoryFilter[] = [
+          { id: "all", label: "All", icon: Zap, color: DEFAULT_CATEGORY_COLOR },
+          ...(categoryRows ?? []).map(row => ({
+            id: row.slug,
+            label: row.short_name || row.name,
+            color: row.color || DEFAULT_CATEGORY_COLOR,
+            icon: resolveCategoryIcon(row.icon_name),
+          })),
+        ]
+
         if (isMounted) {
+          setCategories(mappedCategories)
           setModels(mapped)
         }
       } catch (err) {
@@ -137,12 +183,19 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!categories.some(c => c.id === cat)) {
+      setCat("all")
+    }
+  }, [categories, cat])
+
   const bg      = isDark ? "#0d0d10" : "#f8f8f6"
   const surface = isDark ? "#111114" : "#ffffff"
   const border  = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)"
   const text     = isDark ? "#f4f4f5" : "#09090b"
   const muted    = isDark ? "#52525b" : "#a1a1aa"
   const subtext  = isDark ? "#71717a" : "#71717a"
+  const categoriesById = new Map(categories.map(category => [category.id, category] as const))
 
   const filtered = models.filter(m =>
     (cat === "all" || m.category === cat) &&
@@ -217,7 +270,7 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
             <div style={{ display: "flex", gap: 1, background: border }}>
               {[
                 { n: models.length.toString(), l: "Models" },
-                { n: "5", l: "Categories" },
+                { n: Math.max(categories.length - 1, 0).toString(), l: "Categories" },
                 { n: "99.9%", l: "Uptime" },
               ].map(s => (
                 <div key={s.l} style={{ padding: "14px 20px", background: surface }}>
@@ -248,7 +301,7 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
             </div>
 
             <div style={{ display: "flex", gap: 1, background: border }}>
-              {CATEGORIES.map(c => {
+              {categories.map(c => {
                 const active = cat === c.id
                 return (
                   <button key={c.id} onClick={() => setCat(c.id)}
@@ -297,7 +350,7 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
             {/* Result count */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
               <span style={{ fontSize: 12, color: muted, fontWeight: 600 }}>
-                {filtered.length} model{filtered.length !== 1 ? "s" : ""} {cat !== "all" ? `in ${CATEGORIES.find(c => c.id === cat)?.label}` : ""}
+                {filtered.length} model{filtered.length !== 1 ? "s" : ""} {cat !== "all" ? `in ${categories.find(c => c.id === cat)?.label}` : ""}
               </span>
             </div>
 
@@ -317,7 +370,7 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
             <motion.div key="grid"
               style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 1, background: border }}>
               {filtered.map((model, i) => {
-                const accent = CAT_COLORS[model.category] ?? "var(--color-primary)"
+                const accent = categoriesById.get(model.category)?.color ?? "var(--color-primary)"
                 const isHovered = hovered === model.slug
                 return (
                   <motion.div key={model.slug}
@@ -350,11 +403,7 @@ export function ModelsDocsIndex({ user }: ModelsDocsIndexProps) {
                         <motion.div
                           animate={{ background: isHovered ? accent : isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)" }}
                           style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          {model.category === "conversational" && <Bot size={18} style={{ color: isHovered ? "#fff" : accent }} />}
-                          {model.category === "voice"          && <Mic size={18} style={{ color: isHovered ? "#fff" : accent }} />}
-                          {model.category === "video"          && <Video size={18} style={{ color: isHovered ? "#fff" : accent }} />}
-                          {model.category === "llm"            && <Brain size={18} style={{ color: isHovered ? "#fff" : accent }} />}
-                          {model.category === "livestreaming"  && <Radio size={18} style={{ color: isHovered ? "#fff" : accent }} />}
+                          <CategoryIcon category={model.category} categoriesById={categoriesById} size={18} color={isHovered ? "#fff" : accent} />
                         </motion.div>
                         <div>
                           <div style={{ fontSize: 15, fontWeight: 800, color: text, letterSpacing: "-0.02em", lineHeight: 1 }}>{model.name}</div>
