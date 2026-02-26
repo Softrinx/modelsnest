@@ -323,6 +323,182 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
+## API Usage
+
+This project exposes an OpenAI‑style API surface on top of Novita, secured with **user API tokens** and billed against **user credits**.
+
+### Authentication
+
+- **Header**: `Authorization: Bearer ptr_...`
+- Tokens are created and managed in the **Dashboard → API** page.
+- All endpoints will:
+  - Verify the token (`ptr_...`) against the `api_tokens` table.
+  - Resolve the owning user and apply billing against that user’s `user_credits` balance.
+  - Return **402** (`INSUFFICIENT_CREDITS`) if the user has insufficient credits.
+
+### Base URL
+
+In development, the base URL is:
+
+```text
+http://localhost:3000/api
+```
+
+In production, replace with your deployed domain (for example `https://modelsnest.com/api`).
+
+---
+
+### Chat completions (LLMs)
+
+- **Endpoint**: `POST /api/v1/chat/completions`
+- **Headers**:
+  - `Authorization: Bearer ptr_YOUR_API_TOKEN`
+  - `Content-Type: application/json`
+
+**Request body (OpenAI‑compatible)**
+
+```json
+{
+  "model": "deepseek-v3.2",
+  "messages": [
+    { "role": "system", "content": "You are a helpful assistant." },
+    { "role": "user", "content": "Explain the history of computers." }
+  ],
+  "max_tokens": 512,
+  "temperature": 0.7
+}
+```
+
+- `model` must match a slug in the `ai_models` catalog.
+- The route:
+  - Ensures the model is **active** in `ai_models`.
+  - Loads per‑model pricing from `ai_model_pricing` where `price_unit = '1K tokens'`, `currency = 'USD'`.
+  - Computes cost from `usage.total_tokens` and deducts credits via `credit_transactions` + triggers.
+
+**Response (truncated)**
+
+```json
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion",
+  "model": "deepseek-v3.2",
+  "choices": [
+    {
+      "index": 0,
+      "message": { "role": "assistant", "content": "..." },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 64,
+    "total_tokens": 76
+  },
+  "billing": {
+    "cost_usd": 0.0001,
+    "price_per_1k_tokens_usd": 0.0004,
+    "catalog_pricing": {
+      "slug": "deepseek-v3.2",
+      "input_price": 0.000269,
+      "output_price": 0.0004,
+      "price_unit": "1K tokens"
+    }
+  }
+}
+```
+
+If the **billing transaction insert fails**, the API returns **500** and does **not** return a successful completion, ensuring there are no “free” responses.
+
+---
+
+### Audio transcriptions (voice)
+
+- **Endpoint**: `POST /api/v1/audio/transcriptions`
+- **Headers**:
+  - `Authorization: Bearer ptr_YOUR_API_TOKEN`
+  - `Content-Type: multipart/form-data`
+
+**Form fields**
+
+- `file`: the audio file (mp3, wav, etc.).
+- `model`: catalog slug for the transcription model (for example `whisper-v3`).
+- `duration_seconds`: total audio duration in seconds (used for billing).
+
+**Billing logic**
+
+- Uses `ai_model_pricing` where `price_unit = 'minute'`, `currency = 'USD'`.
+- Calculates:
+  - `minutes = duration_seconds / 60`
+  - `cost = minutes * perMinutePrice`
+- Inserts a `usage` transaction and `usage_logs` entry; returns **402** if credits are too low.
+
+_Note: currently this endpoint validates and bills the request and returns JSON with `billing` info. It is the integration point to plug in Novita’s audio API._
+
+---
+
+### Text‑to‑speech (TTS)
+
+- **Endpoint**: `POST /api/v1/text-to-speech`
+- **Headers**:
+  - `Authorization: Bearer ptr_YOUR_API_TOKEN`
+  - `Content-Type: application/json`
+
+**Request body**
+
+```json
+{
+  "model": "elevenlabs-pro",
+  "text": "Welcome to Modelsnest. Your AI infrastructure, supercharged."
+}
+```
+
+- You may optionally pass an explicit `characters` field to override `text.length` for billing.
+
+**Billing logic**
+
+- Uses `ai_model_pricing` where `price_unit = 'character'`, `currency = 'USD'`.
+- Calculates: `cost = characters_billed * perCharacterPrice`.
+- Records a `usage` transaction and `usage_logs` row, then returns a JSON acknowledgment including `cost_usd`.
+
+_Note: this endpoint currently stubs the provider call; it is the place to integrate Novita’s TTS._
+
+---
+
+### Video generations
+
+- **Endpoint**: `POST /api/v1/video/generations`
+- **Headers**:
+  - `Authorization: Bearer ptr_YOUR_API_TOKEN`
+  - `Content-Type: application/json`
+
+**Request body**
+
+```json
+{
+  "model": "runway-gen-3",
+  "duration_seconds": 10
+}
+```
+
+**Billing logic**
+
+- Uses `ai_model_pricing` where `price_unit = 'second'`, `currency = 'USD'`.
+- Calculates: `cost = duration_seconds * perSecondPrice`.
+- Validates credits, records a `usage` transaction and `usage_logs` entry, and returns JSON with `cost_usd`.
+
+_Note: this endpoint is a billing + validation shell for video generation; plug in the provider call here._
+
+---
+
+### Error codes
+
+Common error patterns across all endpoints:
+
+- `401 MISSING_AUTH_HEADER` / `INVALID_TOKEN` — no `Authorization` header or invalid `ptr_` token.
+- `400 MISSING_MODEL` / `MODEL_UNAVAILABLE` / `MODEL_NOT_FOUND` — model slug is missing, inactive, or not present in `ai_models`.
+- `402 INSUFFICIENT_CREDITS` — user’s `user_credits.balance` is insufficient for the computed cost.
+- `500 PRICING_MISSING` / `INVALID_PRICING` / `USAGE_TRANSACTION_FAILED` / `INTERNAL_ERROR` — configuration or billing errors; no credits are deducted in these cases.
+
 ## Notes
 
 - `app/globals.css` is the canonical global stylesheet. The file at `styles/globals.css` is a legacy artifact and is no longer the active stylesheet.
