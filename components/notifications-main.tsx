@@ -7,7 +7,7 @@ import { useSidebar } from "@/components/dashboard-layout-controller"
 import {
   Bell, Mail, Smartphone, MessageSquare, Globe,
   Shield, CreditCard, CheckCircle, Clock, Zap,
-  Volume2, VolumeX, AlertCircle, Info,
+  Volume2, VolumeX, AlertCircle, Info, Loader2,
 } from "lucide-react"
 import type { DashboardUser } from "@/types/dashboard-user"
 
@@ -45,7 +45,6 @@ function Toggle({ on, onChange, disabled }: { on: boolean; onChange: () => void;
 function Section({ title, sub, icon: Icon, children, card, border, text, muted, color = "var(--color-primary)" }: any) {
   return (
     <div style={{ border: `1px solid ${border}`, overflow: "hidden" }}>
-      {/* Section header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px",
         borderBottom: `1px solid ${border}`, background: card }}>
         <div style={{ width: 34, height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
@@ -64,7 +63,7 @@ function Section({ title, sub, icon: Icon, children, card, border, text, muted, 
 }
 
 // ── Toggle row ───────────────────────────────────────────────────────────────
-function ToggleRow({ label, sub, value, onToggle, card, border, text, muted, indent = false }: any) {
+function ToggleRow({ label, sub, value, onToggle, card, border, text, muted, indent = false, disabled }: any) {
   return (
     <div style={{
       display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -76,7 +75,7 @@ function ToggleRow({ label, sub, value, onToggle, card, border, text, muted, ind
         <div style={{ fontSize: 13, fontWeight: indent ? 500 : 600, color: text }}>{label}</div>
         {sub && <div style={{ fontSize: 11, color: muted, marginTop: 2 }}>{sub}</div>}
       </div>
-      <Toggle on={value} onChange={onToggle} />
+      <Toggle on={value} onChange={onToggle} disabled={disabled} />
     </div>
   )
 }
@@ -109,7 +108,7 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
 
   const [quiet, setQuiet] = useState({ enabled: false, start: "22:00", end: "08:00" })
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
 
   const showToast = (type: "success" | "error", text: string) => {
     setToast({ type, text })
@@ -117,23 +116,62 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
   }
 
   useEffect(() => {
+    setFetching(true)
     getProfile().then(r => {
       if (r.success && r.data) {
         const d = r.data
         setNotifs({
-          email: { enabled: d.email_notifications, marketing: d.marketing_updates, updates: d.product_updates, security: d.security_alerts, billing: d.billing_notifications },
-          push:  { enabled: d.push_notifications, chat: d.chat_messages, updates: d.product_updates, security: d.security_push_alerts },
-          inApp: { enabled: d.in_app_notifications, chat: d.chat_notifications, updates: d.product_updates, tips: d.tips },
+          email: {
+            enabled:   d.email_notifications,
+            marketing: d.marketing_updates,
+            updates:   d.product_updates,
+            security:  d.security_alerts,
+            billing:   d.billing_notifications,
+          },
+          push: {
+            enabled:  d.push_notifications,
+            chat:     d.chat_messages,
+            updates:  d.product_updates,
+            security: d.security_push_alerts,
+          },
+          inApp: {
+            enabled: d.in_app_notifications,
+            chat:    d.chat_notifications,
+            updates: d.product_updates,
+            tips:    d.tips,
+          },
         })
-        setQuiet({ enabled: d.quiet_hours, start: d.quiet_hours_start?.slice(0, 5) ?? "22:00", end: d.quiet_hours_end?.slice(0, 5) ?? "08:00" })
+        setQuiet({
+          enabled: d.quiet_hours,
+          start:   d.quiet_hours_start?.slice(0, 5) ?? "22:00",
+          end:     d.quiet_hours_end?.slice(0, 5) ?? "08:00",
+        })
+      } else {
+        showToast("error", "Failed to load notification preferences")
       }
-    })
+    }).finally(() => setFetching(false))
   }, [])
 
   const FIELD_MAP: Record<string, Record<string, string>> = {
-    email: { enabled: "email_notifications", security: "security_alerts", billing: "billing_notifications", updates: "product_updates", marketing: "marketing_updates" },
-    push:  { enabled: "push_notifications", chat: "chat_messages", updates: "product_updates", security: "security_push_alerts" },
-    inApp: { enabled: "in_app_notifications", chat: "chat_notifications", updates: "product_updates", tips: "tips" },
+    email: {
+      enabled:   "email_notifications",
+      security:  "security_alerts",
+      billing:   "billing_notifications",
+      updates:   "product_updates",
+      marketing: "marketing_updates",
+    },
+    push: {
+      enabled:  "push_notifications",
+      chat:     "chat_messages",
+      updates:  "product_updates",
+      security: "security_push_alerts",
+    },
+    inApp: {
+      enabled: "in_app_notifications",
+      chat:    "chat_notifications",
+      updates: "product_updates",
+      tips:    "tips",
+    },
   }
 
   const toggle = async (cat: keyof Notifs, key: string) => {
@@ -155,30 +193,24 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
     const next = !quiet.enabled
     setQuiet(p => ({ ...p, enabled: next }))
     const r = await updateNotificationSettings({ quiet_hours: next } as NotificationUpdates)
-    if (!r.success) { setQuiet(p => ({ ...p, enabled: !next })); showToast("error", r.error ?? "Failed") }
-    else showToast("success", "Quiet hours updated")
+    if (!r.success) {
+      setQuiet(p => ({ ...p, enabled: !next }))
+      showToast("error", r.error ?? "Failed")
+    } else {
+      showToast("success", "Quiet hours updated")
+    }
   }
 
   const changeQuietTime = async (field: "start" | "end", value: string) => {
     const prev = quiet[field]
     setQuiet(p => ({ ...p, [field]: value }))
-    const r = await updateNotificationSettings({ [field === "start" ? "quiet_hours_start" : "quiet_hours_end"]: value } as NotificationUpdates)
-    if (!r.success) { setQuiet(p => ({ ...p, [field]: prev })); showToast("error", r.error ?? "Failed") }
-  }
-
-  const history = [
-    { id: 1, type: "chat",     msg: "AI Assistant completed your request",       time: "2 min ago",   read: false },
-    { id: 2, type: "security", msg: "New login from Chrome · Nairobi, KE",       time: "1 hr ago",    read: false },
-    { id: 3, type: "billing",  msg: "$100 credit added to your account",          time: "3 hrs ago",   read: true  },
-    { id: 4, type: "update",   msg: "DeepSeek V3 is now available",              time: "Yesterday",   read: true  },
-    { id: 5, type: "security", msg: "API key generated from dashboard",           time: "2 days ago",  read: true  },
-  ]
-
-  const histIcon = (t: string) => {
-    if (t === "chat")     return <MessageSquare className="w-3.5 h-3.5" style={{ color: "var(--color-primary)" }} />
-    if (t === "security") return <Shield        className="w-3.5 h-3.5" style={{ color: "#ef4444" }} />
-    if (t === "billing")  return <CreditCard    className="w-3.5 h-3.5" style={{ color: "#10b981" }} />
-    return                       <Globe         className="w-3.5 h-3.5" style={{ color: "#f59e0b" }} />
+    const r = await updateNotificationSettings({
+      [field === "start" ? "quiet_hours_start" : "quiet_hours_end"]: value,
+    } as NotificationUpdates)
+    if (!r.success) {
+      setQuiet(p => ({ ...p, [field]: prev }))
+      showToast("error", r.error ?? "Failed")
+    }
   }
 
   const sharedRowProps = { card, border, text, muted }
@@ -216,16 +248,15 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
           </div>
         </div>
 
-        {/* Unread badge */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px",
-          background: "color-mix(in srgb, var(--color-primary) 8%, transparent)",
-          border: "1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)",
-          borderRadius: 8 }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--color-primary)" }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-primary)" }}>
-            {history.filter(h => !h.read).length} unread
-          </span>
-        </div>
+        {fetching && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px",
+            background: "color-mix(in srgb, var(--color-primary) 8%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)",
+            borderRadius: 8 }}>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--color-primary)" }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-primary)" }}>Loading…</span>
+          </div>
+        )}
       </div>
 
       {/* ── BODY ── */}
@@ -254,106 +285,91 @@ export function NotificationsMain({ user }: NotificationsMainProps) {
             </div>
           )}
 
-          {/* ── EMAIL ── */}
-          <Section title="Email notifications" sub="Control which emails you receive" icon={Mail} {...sharedRowProps} color="#6366f1">
-            <ToggleRow label="Email notifications" sub="Master toggle for all email delivery" value={notifs.email.enabled} onToggle={() => toggle("email","enabled")} {...sharedRowProps} />
-            {notifs.email.enabled && <>
-              <ToggleRow indent label="Security alerts" sub="Login attempts, API key changes" value={notifs.email.security} onToggle={() => toggle("email","security")} {...sharedRowProps} />
-              <ToggleRow indent label="Billing updates" sub="Payment receipts and invoices" value={notifs.email.billing} onToggle={() => toggle("email","billing")} {...sharedRowProps} />
-              <ToggleRow indent label="Product updates" sub="New features and improvements" value={notifs.email.updates} onToggle={() => toggle("email","updates")} {...sharedRowProps} />
-              <ToggleRow indent label="Marketing" sub="Promotions and special offers" value={notifs.email.marketing} onToggle={() => toggle("email","marketing")} {...sharedRowProps} />
-            </>}
-          </Section>
-
-          {/* ── PUSH ── */}
-          <Section title="Push notifications" sub="Alerts on your mobile and desktop devices" icon={Smartphone} {...sharedRowProps} color="#8b5cf6">
-            <ToggleRow label="Push notifications" sub="Master toggle for all push delivery" value={notifs.push.enabled} onToggle={() => toggle("push","enabled")} {...sharedRowProps} />
-            {notifs.push.enabled && <>
-              <ToggleRow indent label="Chat messages" sub="New AI responses and completions" value={notifs.push.chat} onToggle={() => toggle("push","chat")} {...sharedRowProps} />
-              <ToggleRow indent label="Security alerts" sub="Suspicious activity detected" value={notifs.push.security} onToggle={() => toggle("push","security")} {...sharedRowProps} />
-              <ToggleRow indent label="Product updates" sub="New models and features" value={notifs.push.updates} onToggle={() => toggle("push","updates")} {...sharedRowProps} />
-            </>}
-          </Section>
-
-          {/* ── IN-APP ── */}
-          <Section title="In-app notifications" sub="What appears inside the dashboard" icon={Bell} {...sharedRowProps} color="#06b6d4">
-            <ToggleRow label="In-app notifications" sub="Master toggle for all in-app alerts" value={notifs.inApp.enabled} onToggle={() => toggle("inApp","enabled")} {...sharedRowProps} />
-            {notifs.inApp.enabled && <>
-              <ToggleRow indent label="Chat activity" sub="Message completions and errors" value={notifs.inApp.chat} onToggle={() => toggle("inApp","chat")} {...sharedRowProps} />
-              <ToggleRow indent label="Product updates" sub="Release notes and changelogs" value={notifs.inApp.updates} onToggle={() => toggle("inApp","updates")} {...sharedRowProps} />
-              <ToggleRow indent label="Tips & hints" sub="Contextual usage suggestions" value={notifs.inApp.tips} onToggle={() => toggle("inApp","tips")} {...sharedRowProps} />
-            </>}
-          </Section>
-
-          {/* ── QUIET HOURS ── */}
-          <Section title="Quiet hours" sub="Pause all non-critical notifications on a schedule" icon={Clock} {...sharedRowProps} color="#f59e0b">
-            <ToggleRow label="Enable quiet hours" sub="Mute notifications during selected times" value={quiet.enabled} onToggle={toggleQuiet} {...sharedRowProps} />
-            {quiet.enabled && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: border, borderTop: `1px solid ${border}` }}>
-                {(["start","end"] as const).map(f => (
-                  <div key={f} style={{ background: card, padding: "16px 20px" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: muted, marginBottom: 8 }}>
-                      {f === "start" ? "Start time" : "End time"}
+          {/* Skeleton overlay when fetching */}
+          {fetching ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} style={{ border: `1px solid ${border}`, overflow: "hidden" }}>
+                  <div style={{ padding: "16px 20px", borderBottom: `1px solid ${border}`, background: card, display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: isDark ? "#2a2b30" : "#ebebeb" }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ width: 120, height: 12, borderRadius: 4, background: isDark ? "#2a2b30" : "#ebebeb", marginBottom: 6 }} />
+                      <div style={{ width: 180, height: 10, borderRadius: 4, background: isDark ? "#232428" : "#f0f0ee" }} />
                     </div>
-                    <input
-                      type="time"
-                      value={quiet[f]}
-                      onChange={e => changeQuietTime(f, e.target.value)}
-                      style={{
-                        width: "100%", padding: "8px 10px", fontSize: 14, fontWeight: 700,
-                        fontFamily: "monospace", color: text,
-                        background: card2, border: `1px solid ${border}`,
-                        outline: "none", borderRadius: 0,
-                      }}
-                    />
                   </div>
-                ))}
-              </div>
-            )}
-          </Section>
-
-          {/* ── RECENT NOTIFICATIONS ── */}
-          <div style={{ border: `1px solid ${border}`, overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "16px 20px", borderBottom: `1px solid ${border}`, background: card }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)" }}>
-                  <Zap className="w-4 h-4" style={{ color: "#6366f1" }} />
+                  {[1, 2, 3].map(j => (
+                    <div key={j} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", background: card, borderBottom: `1px solid ${border}` }}>
+                      <div>
+                        <div style={{ width: 100 + j * 20, height: 11, borderRadius: 4, background: isDark ? "#2a2b30" : "#ebebeb", marginBottom: 5 }} />
+                        <div style={{ width: 140 + j * 10, height: 9, borderRadius: 4, background: isDark ? "#232428" : "#f0f0ee" }} />
+                      </div>
+                      <div style={{ width: 44, height: 24, borderRadius: 12, background: isDark ? "#2a2b30" : "#ebebeb" }} />
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: text }}>Recent activity</div>
-                  <div style={{ fontSize: 11, color: muted, marginTop: 1 }}>Your notification history</div>
-                </div>
-              </div>
-              <button style={{ fontSize: 11, color: "var(--color-primary)", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}>
-                Mark all read
-              </button>
+              ))}
             </div>
+          ) : (
+            <>
+              {/* ── EMAIL ── */}
+              <Section title="Email notifications" sub="Control which emails you receive" icon={Mail} {...sharedRowProps} color="#6366f1">
+                <ToggleRow label="Email notifications" sub="Master toggle for all email delivery" value={notifs.email.enabled} onToggle={() => toggle("email", "enabled")} {...sharedRowProps} />
+                {notifs.email.enabled && <>
+                  <ToggleRow indent label="Security alerts" sub="Login attempts, API key changes" value={notifs.email.security} onToggle={() => toggle("email", "security")} {...sharedRowProps} />
+                  <ToggleRow indent label="Billing updates" sub="Payment receipts and invoices" value={notifs.email.billing} onToggle={() => toggle("email", "billing")} {...sharedRowProps} />
+                  <ToggleRow indent label="Product updates" sub="New features and improvements" value={notifs.email.updates} onToggle={() => toggle("email", "updates")} {...sharedRowProps} />
+                  <ToggleRow indent label="Marketing" sub="Promotions and special offers" value={notifs.email.marketing} onToggle={() => toggle("email", "marketing")} {...sharedRowProps} />
+                </>}
+              </Section>
 
-            {history.map((n, i) => (
-              <div key={n.id} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "14px 20px",
-                background: n.read ? card : isDark ? "rgba(99,102,241,0.04)" : "rgba(99,102,241,0.02)",
-                borderBottom: i < history.length - 1 ? `1px solid ${border}` : "none",
-                borderLeft: !n.read ? "2px solid var(--color-primary)" : "2px solid transparent",
-              }}>
-                {/* Icon */}
-                <div style={{ width: 30, height: 30, borderRadius: 7, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                  background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: `1px solid ${border}` }}>
-                  {histIcon(n.type)}
-                </div>
-                {/* Text */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: n.read ? 400 : 600, color: n.read ? muted : text,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.msg}</div>
-                  <div style={{ fontSize: 11, color: subtle, marginTop: 2 }}>{n.time}</div>
-                </div>
-                {/* Unread dot */}
-                {!n.read && <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--color-primary)", flexShrink: 0 }} />}
-              </div>
-            ))}
-          </div>
+              {/* ── PUSH ── */}
+              <Section title="Push notifications" sub="Alerts on your mobile and desktop devices" icon={Smartphone} {...sharedRowProps} color="#8b5cf6">
+                <ToggleRow label="Push notifications" sub="Master toggle for all push delivery" value={notifs.push.enabled} onToggle={() => toggle("push", "enabled")} {...sharedRowProps} />
+                {notifs.push.enabled && <>
+                  <ToggleRow indent label="Chat messages" sub="New AI responses and completions" value={notifs.push.chat} onToggle={() => toggle("push", "chat")} {...sharedRowProps} />
+                  <ToggleRow indent label="Security alerts" sub="Suspicious activity detected" value={notifs.push.security} onToggle={() => toggle("push", "security")} {...sharedRowProps} />
+                  <ToggleRow indent label="Product updates" sub="New models and features" value={notifs.push.updates} onToggle={() => toggle("push", "updates")} {...sharedRowProps} />
+                </>}
+              </Section>
+
+              {/* ── IN-APP ── */}
+              <Section title="In-app notifications" sub="What appears inside the dashboard" icon={Bell} {...sharedRowProps} color="#06b6d4">
+                <ToggleRow label="In-app notifications" sub="Master toggle for all in-app alerts" value={notifs.inApp.enabled} onToggle={() => toggle("inApp", "enabled")} {...sharedRowProps} />
+                {notifs.inApp.enabled && <>
+                  <ToggleRow indent label="Chat activity" sub="Message completions and errors" value={notifs.inApp.chat} onToggle={() => toggle("inApp", "chat")} {...sharedRowProps} />
+                  <ToggleRow indent label="Product updates" sub="Release notes and changelogs" value={notifs.inApp.updates} onToggle={() => toggle("inApp", "updates")} {...sharedRowProps} />
+                  <ToggleRow indent label="Tips & hints" sub="Contextual usage suggestions" value={notifs.inApp.tips} onToggle={() => toggle("inApp", "tips")} {...sharedRowProps} />
+                </>}
+              </Section>
+
+              {/* ── QUIET HOURS ── */}
+              <Section title="Quiet hours" sub="Pause all non-critical notifications on a schedule" icon={Clock} {...sharedRowProps} color="#f59e0b">
+                <ToggleRow label="Enable quiet hours" sub="Mute notifications during selected times" value={quiet.enabled} onToggle={toggleQuiet} {...sharedRowProps} />
+                {quiet.enabled && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: border, borderTop: `1px solid ${border}` }}>
+                    {(["start", "end"] as const).map(f => (
+                      <div key={f} style={{ background: card, padding: "16px 20px" }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: muted, marginBottom: 8 }}>
+                          {f === "start" ? "Start time" : "End time"}
+                        </div>
+                        <input
+                          type="time"
+                          value={quiet[f]}
+                          onChange={e => changeQuietTime(f, e.target.value)}
+                          style={{
+                            width: "100%", padding: "8px 10px", fontSize: 14, fontWeight: 700,
+                            fontFamily: "monospace", color: text,
+                            background: card2, border: `1px solid ${border}`,
+                            outline: "none", borderRadius: 0,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+            </>
+          )}
 
           {/* Info note */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "12px 0" }}>
