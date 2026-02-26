@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
         {
           error: "Missing or invalid Authorization header",
           code: "MISSING_AUTH_HEADER",
-          message: 'Use Authorization: Bearer ptr_your_api_token',
+          message: "Use Authorization: Bearer ptr_your_api_token",
         },
         { status: 401 },
       )
@@ -37,16 +37,19 @@ export async function POST(request: NextRequest) {
         {
           error: "Invalid request body",
           code: "INVALID_BODY",
-          message: "Expected a JSON body with model and text",
+          message: "Expected a JSON body with model and prompt",
         },
         { status: 400 },
       )
     }
 
-    const { model, text, characters } = body as {
+    const { model, prompt, num_images, n, width, height } = body as {
       model?: string
-      text?: string
-      characters?: number
+      prompt?: string
+      num_images?: number
+      n?: number
+      width?: number
+      height?: number
     }
 
     if (!model || typeof model !== "string" || model.trim().length === 0) {
@@ -55,6 +58,17 @@ export async function POST(request: NextRequest) {
           error: "Missing model",
           code: "MISSING_MODEL",
           message: "Provide a model slug in the 'model' field",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
+      return NextResponse.json(
+        {
+          error: "Missing prompt",
+          code: "MISSING_PROMPT",
+          message: "Provide a non-empty prompt in the 'prompt' field",
         },
         { status: 400 },
       )
@@ -115,61 +129,51 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedPriceUnit = String(pricingRow.price_unit ?? "").trim().toLowerCase()
-    const isPerCharacter = normalizedPriceUnit === "character" || normalizedPriceUnit === "char" || normalizedPriceUnit === "characters"
-    const isPer1kCharacters =
-      normalizedPriceUnit === "1k chars" ||
-      normalizedPriceUnit === "1k char" ||
-      normalizedPriceUnit === "1k characters" ||
-      normalizedPriceUnit === "1000 chars" ||
-      normalizedPriceUnit === "1000 characters"
+    const isPerImage = normalizedPriceUnit === "image" || normalizedPriceUnit === "images"
 
-    if (pricingRow.currency !== "USD" || (!isPerCharacter && !isPer1kCharacters)) {
+    if (pricingRow.currency !== "USD" || !isPerImage) {
       return NextResponse.json(
         {
           error: "Unsupported pricing unit",
           code: "UNSUPPORTED_UNIT",
-          message: "Text-to-speech endpoint expects models priced per character or per 1k characters in USD.",
+          message: "Image generation endpoint expects models priced per image in USD.",
         },
         { status: 500 },
       )
     }
 
-    const textLength =
-      typeof text === "string" && text.length > 0
-        ? text.length
-        : typeof characters === "number" && Number.isFinite(characters) && characters > 0
-          ? characters
-          : NaN
+    const imageCountRaw = typeof num_images === "number" ? num_images : n
+    const imageCount = Number.isFinite(imageCountRaw) && imageCountRaw && imageCountRaw > 0
+      ? Math.floor(imageCountRaw)
+      : 1
 
-    if (!Number.isFinite(textLength) || textLength <= 0) {
+    if (!Number.isFinite(imageCount) || imageCount <= 0 || imageCount > 10) {
       return NextResponse.json(
         {
-          error: "Missing or invalid text/characters",
-          code: "INVALID_CHARACTERS",
-          message: "Provide 'text' or a positive 'characters' count so we can bill correctly.",
+          error: "Invalid image count",
+          code: "INVALID_IMAGE_COUNT",
+          message: "Provide num_images (or n) between 1 and 10.",
         },
         { status: 400 },
       )
     }
 
-    const unitPrice = Math.max(
+    const perImage = Math.max(
       Number(pricingRow.input_price ?? 0),
       Number(pricingRow.output_price ?? 0),
       0,
     )
 
-    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+    if (!Number.isFinite(perImage) || perImage <= 0) {
       return NextResponse.json(
         {
           error: "Invalid pricing configuration",
           code: "INVALID_PRICING",
-          message: "Model pricing is not configured with a positive rate.",
+          message: "Model pricing is not configured with a positive per-image rate.",
         },
         { status: 500 },
       )
     }
-
-    const cost = isPer1kCharacters ? (textLength / 1000) * unitPrice : textLength * unitPrice
 
     const { data: creditsRow, error: creditsError } = await adminSupabase
       .from("user_credits")
@@ -202,6 +206,8 @@ export async function POST(request: NextRequest) {
         { status: 402 },
       )
     }
+
+    const cost = imageCount * perImage
 
     if (!Number.isFinite(cost) || cost <= 0) {
       return NextResponse.json(
@@ -251,15 +257,17 @@ export async function POST(request: NextRequest) {
       user_id: userId,
       type: "usage",
       amount: cost,
-      description: `Text-to-speech usage - model ${requestedModelSlug}`,
+      description: `Image generation usage - model ${requestedModelSlug}`,
       status: "completed",
       metadata: {
         source: "api",
         token_id: tokenInfo.id,
         model_slug: requestedModelSlug,
-        characters_billed: textLength,
-        pricing_unit: pricingRow.price_unit,
-        unit_price_usd: unitPrice,
+        prompt_length: prompt.trim().length,
+        image_count: imageCount,
+        width: typeof width === "number" ? width : null,
+        height: typeof height === "number" ? height : null,
+        price_per_image_usd: perImage,
       },
     })
 
@@ -277,7 +285,7 @@ export async function POST(request: NextRequest) {
 
     const { error: usageLogError } = await adminSupabase.from("usage_logs").insert({
       user_id: userId,
-      service_type: "text_to_speech",
+      service_type: "image_generation",
       tokens_used: null,
       cost,
       model_used: requestedModelSlug,
@@ -290,15 +298,19 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Text-to-speech request accepted (provider integration not yet implemented).",
+      message: "Image generation request accepted (provider integration not yet implemented).",
+      data: {
+        model: requestedModelSlug,
+        prompt,
+        image_count: imageCount,
+      },
       billing: {
         cost_usd: cost,
-        pricing_unit: pricingRow.price_unit,
-        unit_price_usd: unitPrice,
+        price_per_image_usd: perImage,
       },
     })
   } catch (error) {
-    console.error("Text-to-speech API error:", error)
+    console.error("Image generation API error:", error)
     return NextResponse.json(
       {
         error: "Internal server error",
@@ -309,4 +321,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
