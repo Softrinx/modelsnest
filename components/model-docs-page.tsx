@@ -89,8 +89,8 @@ const buildFallback = (slug: string) => ({
 const LANGS = ["Python", "JavaScript", "cURL"]
 
 /* ─── Playground mock responses by category ─────────────────────────────── */
-const MOCK_RESPONSES: Record<string, (prompt: string, params: any) => any> = {
-  conversational: (prompt, params) => ({
+const MOCK_RESPONSES: Record<string, (input: string, params: any) => any> = {
+  "text-generation": (input, params) => ({
     id: `chatcmpl-${Math.random().toString(36).slice(2, 10)}`,
     object: "chat.completion",
     created: Math.floor(Date.now() / 1000),
@@ -99,61 +99,57 @@ const MOCK_RESPONSES: Record<string, (prompt: string, params: any) => any> = {
       index: 0,
       message: {
         role: "assistant",
-        content: `This is a simulated response to: "${prompt.slice(0, 60)}${prompt.length > 60 ? '...' : ''}"\n\nIn a real call, the model would process your input and return a thoughtful, contextual answer here. The response length and style would depend on your temperature (${params.temperature ?? 1.0}) and max_tokens (${params.max_tokens ?? 1024}) settings.`,
+        content: `This is a simulated response to: "${input.slice(0, 60)}${input.length > 60 ? '...' : ''}"\n\nIn a real call, the model would process your text prompt and return a contextual answer. Output behavior depends on temperature (${params.temperature ?? 1.0}) and max_tokens (${params.max_tokens ?? 1024}).`,
       },
       finish_reason: "stop",
     }],
     usage: {
-      prompt_tokens: Math.floor(prompt.split(" ").length * 1.3),
+      prompt_tokens: Math.floor(input.split(" ").length * 1.3),
       completion_tokens: Math.floor(Math.random() * 80) + 40,
-      total_tokens: Math.floor(prompt.split(" ").length * 1.3) + Math.floor(Math.random() * 80) + 40,
+      total_tokens: Math.floor(input.split(" ").length * 1.3) + Math.floor(Math.random() * 80) + 40,
     },
   }),
-  llm: (prompt, params) => ({
-    id: `cmpl-${Math.random().toString(36).slice(2, 10)}`,
-    object: "text_completion",
+  "image-generation": (input, params) => ({
+    id: `img_${Math.random().toString(36).slice(2, 10)}`,
+    object: "image.generation",
     created: Math.floor(Date.now() / 1000),
     model: params.model,
-    choices: [{
-      text: `[Simulated completion for "${prompt.slice(0, 40)}${prompt.length > 40 ? '...' : ''}"] In production this would be a real continuation of your prompt using temperature=${params.temperature ?? 0.8} and up to ${params.max_tokens ?? 256} tokens.`,
-      index: 0,
-      finish_reason: "stop",
-    }],
-    usage: {
-      prompt_tokens: Math.floor(prompt.split(" ").length * 1.3),
-      completion_tokens: Math.floor(Math.random() * 60) + 20,
-      total_tokens: Math.floor(prompt.split(" ").length * 1.3) + Math.floor(Math.random() * 60) + 20,
-    },
+    prompt: input,
+    image_url: `https://images.modelsnest.dev/generated/${Math.random().toString(36).slice(2, 10)}.png`,
+    size: params.image_size || "1024x1024",
+    quality: "standard",
   }),
-  voice: (prompt, params) => ({
-    text: `[Simulated transcription of your audio input] "${prompt || 'Hello, this is a test of the Whisper transcription model.'}"`,
-    language: "en",
-    duration: parseFloat((Math.random() * 30 + 2).toFixed(2)),
-    segments: [{
-      id: 0, start: 0.0, end: 4.8,
-      text: prompt || "Hello, this is a test transcription.",
-      words: [{ word: "Hello,", start: 0.0, end: 0.4 }, { word: "this", start: 0.5, end: 0.7 }]
-    }],
-  }),
-  video: (prompt) => ({
+  "video-generation": (input, params) => ({
     id: `gen_${Math.random().toString(36).slice(2, 10)}`,
     status: "processing",
     created_at: Math.floor(Date.now() / 1000),
     estimated_seconds: Math.floor(Math.random() * 30) + 20,
-    prompt: prompt,
+    prompt: input,
     resolution: "1080p",
-    duration: 10,
+    duration: params.duration_seconds || 8,
     _note: "Poll the returned id to check completion status. Video URL appears when status = 'completed'.",
   }),
-  livestreaming: (prompt, params) => ({
-    stream_id: params.stream_id || "stream_demo123",
-    status: "processing",
-    session_id: `sess_${Math.random().toString(36).slice(2, 10)}`,
-    features_active: ["moderation", "captions", "analytics"],
-    moderation: { score: 0.04, status: "safe", flagged_categories: [] },
-    captions: { current_text: prompt || "Welcome to the stream!", language: "en" },
-    analytics: { viewers: Math.floor(Math.random() * 5000) + 500, peak_viewers: 3100, chat_rate_per_minute: 142, engagement_score: 0.87 },
+  "voice-synthesis": (input, params) => ({
+    id: `tts_${Math.random().toString(36).slice(2, 10)}`,
+    status: "completed",
+    model: params.model,
+    voice: params.voice || "alloy",
+    characters: input.length,
+    audio_url: `https://audio.modelsnest.dev/generated/${Math.random().toString(36).slice(2, 10)}.mp3`,
   }),
+  transcription: (input, params) => ({
+    id: `tr_${Math.random().toString(36).slice(2, 10)}`,
+    status: "completed",
+    model: params.model,
+    source_audio: input,
+    text: `Simulated transcript for audio source: ${input.slice(0, 60)}${input.length > 60 ? "..." : ""}`,
+    language: "en",
+    duration: Number(params.duration_seconds || 30),
+  }),
+  conversational: (input, params) => MOCK_RESPONSES["text-generation"](input, params),
+  llm: (input, params) => MOCK_RESPONSES["text-generation"](input, params),
+  voice: (input, params) => MOCK_RESPONSES.transcription(input, params),
+  video: (input, params) => MOCK_RESPONSES["video-generation"](input, params),
 }
 
 /* ─── Code block ─────────────────────────────────────────────────────────── */
@@ -211,16 +207,28 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
   model: any; isDark: boolean; border: string; surface: string;
   text: string; muted: string; subtext: string; accent: string;
 }) {
-  const isVoice = model.category === "voice"
-  const isVideo = model.category === "video"
-  const isStream = model.category === "livestreaming"
+  const rawCategory = String(model.category || "").toLowerCase()
+  const normalizedCategory = rawCategory === "conversational" || rawCategory === "llm"
+    ? "text-generation"
+    : rawCategory
+
+  const isTextGeneration = normalizedCategory === "text-generation"
+  const isImageGeneration = normalizedCategory === "image-generation"
+  const isVideoGeneration = normalizedCategory === "video-generation"
+  const isVoiceSynthesis = normalizedCategory === "voice-synthesis"
+  const isTranscription = normalizedCategory === "transcription"
 
   // Request state
-  const [prompt, setPrompt]           = useState("")
+  const [textInput, setTextInput]     = useState("")
+  const [imagePrompt, setImagePrompt] = useState("")
+  const [imageUrl, setImageUrl]       = useState("")
+  const [audioUrl, setAudioUrl]       = useState("")
   const [systemPrompt, setSystemPrompt] = useState("You are a helpful assistant.")
+  const [durationSeconds, setDurationSeconds] = useState(8)
+  const [voiceName, setVoiceName]     = useState("alloy")
+  const [imageSize, setImageSize]     = useState("1024x1024")
   const [temperature, setTemperature] = useState(0.7)
   const [maxTokens, setMaxTokens]     = useState(512)
-  const [streamId, setStreamId]       = useState("stream_demo123")
   const [showParams, setShowParams]   = useState(true)
   const [showSystem, setShowSystem]   = useState(false)
 
@@ -238,24 +246,55 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
   const inputBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)"
   const tabBg   = isDark ? "#0d0d10" : "#f0f0ee"
 
+  const canSend = isTextGeneration
+    ? Boolean(textInput.trim())
+    : isImageGeneration
+      ? Boolean(imagePrompt.trim() || imageUrl.trim())
+      : isVideoGeneration
+        ? Boolean(textInput.trim())
+        : isVoiceSynthesis
+          ? Boolean(textInput.trim())
+          : isTranscription
+            ? Boolean(audioUrl.trim())
+            : Boolean(textInput.trim())
+
   const handleRun = async () => {
-    if (!prompt && !isStream) return
+    if (!canSend) return
     setIsLoading(true)
     setHasRun(true)
     const t0 = performance.now()
     await new Promise(r => setTimeout(r, 600 + Math.random() * 800))
     const t1 = performance.now()
-    const params = { model: model.name, temperature, max_tokens: maxTokens, stream_id: streamId }
-    const category = model.category || "conversational"
-    const fn = MOCK_RESPONSES[category] ?? MOCK_RESPONSES["conversational"]
-    setResponse(fn(prompt, params))
+    const params = {
+      model: model.name,
+      temperature,
+      max_tokens: maxTokens,
+      duration_seconds: durationSeconds,
+      image_size: imageSize,
+      voice: voiceName,
+      system: systemPrompt,
+    }
+    const requestInput = isImageGeneration
+      ? (imagePrompt || imageUrl)
+      : isTranscription
+        ? audioUrl
+        : textInput
+
+    const fn = MOCK_RESPONSES[normalizedCategory] ?? MOCK_RESPONSES["text-generation"]
+    setResponse(fn(requestInput, params))
     setLatency(Math.round(t1 - t0))
     setIsLoading(false)
     setResponseTab("pretty")
   }
 
   const handleReset = () => {
-    setPrompt(""); setResponse(null); setHasRun(false); setLatency(null)
+    setTextInput("")
+    setImagePrompt("")
+    setImageUrl("")
+    setAudioUrl("")
+    setResponse(null)
+    setHasRun(false)
+    setLatency(null)
   }
 
   const copyResp = () => {
@@ -308,8 +347,8 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
           </div>
 
           <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
-            {/* System prompt (chat models) */}
-            {!isVoice && !isVideo && (
+            {/* System prompt (text generation) */}
+            {isTextGeneration && (
               <div>
                 <button onClick={() => setShowSystem(s => !s)}
                   style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", color: muted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: 0, marginBottom: showSystem ? 8 : 0 }}>
@@ -329,41 +368,85 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
 
             {/* Main input */}
             <div style={{ flex: 1 }}>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-                {isVoice ? "Transcription Text (mock)" : isVideo ? "Video Prompt" : isStream ? "Caption / Message" : "User Message"}
-              </label>
-              <textarea
-                rows={isVideo ? 5 : 7}
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                placeholder={
-                  isVoice ? "Paste transcript text to simulate transcription output..."
-                  : isVideo ? "e.g. Cinematic drone shot of golden-hour waves crashing on black sand beach..."
-                  : isStream ? "e.g. Hello everyone, great stream tonight!"
-                  : "e.g. Explain the concept of neural networks in simple terms..."
-                }
-                style={{ ...inputStyle }}
-                onFocus={e => e.currentTarget.style.borderColor = accent}
-                onBlur={e => e.currentTarget.style.borderColor = inputBorder}
-                onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleRun() }}
-              />
+              {(isTextGeneration || isVideoGeneration || isVoiceSynthesis) && (
+                <>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                    {isVideoGeneration ? "Video Prompt" : isVoiceSynthesis ? "Text to Synthesize" : "Text Prompt"}
+                  </label>
+                  <textarea
+                    rows={isVideoGeneration ? 5 : 7}
+                    value={textInput}
+                    onChange={e => setTextInput(e.target.value)}
+                    placeholder={
+                      isVideoGeneration
+                        ? "e.g. Cinematic drone shot of golden-hour waves crashing on black sand beach..."
+                        : isVoiceSynthesis
+                          ? "e.g. Welcome to Modelsnest, your AI infrastructure platform."
+                          : "e.g. Explain the concept of neural networks in simple terms..."
+                    }
+                    style={{ ...inputStyle }}
+                    onFocus={e => e.currentTarget.style.borderColor = accent}
+                    onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                    onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleRun() }}
+                  />
+                </>
+              )}
+
+              {isImageGeneration && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                      Image Prompt
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={imagePrompt}
+                      onChange={e => setImagePrompt(e.target.value)}
+                      placeholder="e.g. A cinematic sunset over futuristic mountains"
+                      style={{ ...inputStyle }}
+                      onFocus={e => e.currentTarget.style.borderColor = accent}
+                      onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                      Reference Image URL (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={imageUrl}
+                      onChange={e => setImageUrl(e.target.value)}
+                      placeholder="https://example.com/reference-image.png"
+                      style={{ ...inputStyle }}
+                      onFocus={e => e.currentTarget.style.borderColor = accent}
+                      onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {isTranscription && (
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                    Audio URL
+                  </label>
+                  <input
+                    type="text"
+                    value={audioUrl}
+                    onChange={e => setAudioUrl(e.target.value)}
+                    placeholder="https://example.com/audio-file.mp3"
+                    style={{ ...inputStyle }}
+                    onFocus={e => e.currentTarget.style.borderColor = accent}
+                    onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                  />
+                </div>
+              )}
+
               <div style={{ fontSize: 10, color: muted, marginTop: 4, textAlign: "right" }}>⌘↵ to send</div>
             </div>
 
-            {/* Stream ID (stream models) */}
-            {isStream && (
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Stream ID</label>
-                <input type="text" value={streamId} onChange={e => setStreamId(e.target.value)}
-                  style={{ ...inputStyle }}
-                  onFocus={e => e.currentTarget.style.borderColor = accent}
-                  onBlur={e => e.currentTarget.style.borderColor = inputBorder}
-                />
-              </div>
-            )}
-
-            {/* Parameters accordion */}
-            {!isVoice && (
+            {/* Category-specific params */}
+            {(isTextGeneration || isImageGeneration || isVideoGeneration || isVoiceSynthesis || isTranscription) && (
               <div>
                 <button onClick={() => setShowParams(s => !s)}
                   style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1px solid ${border}`, cursor: "pointer", padding: "9px 12px", color: text }}>
@@ -377,6 +460,7 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
                   <div style={{ border: `1px solid ${border}`, borderTop: "none", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 14 }}>
 
                     {/* Temperature slider */}
+                    {isTextGeneration && (
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                         <label style={{ fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Temperature</label>
@@ -391,9 +475,10 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
                         <span style={{ fontSize: 10, color: muted }}>Creative</span>
                       </div>
                     </div>
+                    )}
 
                     {/* Max tokens */}
-                    {!isVideo && (
+                    {isTextGeneration && (
                       <div>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                           <label style={{ fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Max Tokens</label>
@@ -409,6 +494,52 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
                         </div>
                       </div>
                     )}
+
+                    {(isVideoGeneration || isTranscription) && (
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                          <label style={{ fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                            Duration (seconds)
+                          </label>
+                          <span style={{ fontSize: 12, fontFamily: "monospace", color: accent, fontWeight: 700 }}>{durationSeconds}</span>
+                        </div>
+                        <input type="range" min={1} max={120} step={1} value={durationSeconds}
+                          onChange={e => setDurationSeconds(parseInt(e.target.value))}
+                          style={{ width: "100%", accentColor: accent, cursor: "pointer" }}
+                        />
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                          <span style={{ fontSize: 10, color: muted }}>1s</span>
+                          <span style={{ fontSize: 10, color: muted }}>120s</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {isVoiceSynthesis && (
+                      <div>
+                        <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                          Voice
+                        </label>
+                        <input type="text" value={voiceName} onChange={e => setVoiceName(e.target.value)}
+                          style={{ ...inputStyle }}
+                          onFocus={e => e.currentTarget.style.borderColor = accent}
+                          onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                        />
+                      </div>
+                    )}
+
+                    {isImageGeneration && (
+                      <div>
+                        <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                          Image Size
+                        </label>
+                        <input type="text" value={imageSize} onChange={e => setImageSize(e.target.value)}
+                          placeholder="1024x1024"
+                          style={{ ...inputStyle }}
+                          onFocus={e => e.currentTarget.style.borderColor = accent}
+                          onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -416,12 +547,12 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
 
             {/* Action buttons */}
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleRun} disabled={isLoading || (!prompt && !isStream)}
+              <button onClick={handleRun} disabled={isLoading || !canSend}
                 style={{
                   flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  padding: "11px", background: (!prompt && !isStream) ? (isDark ? "#1a1a20" : "#e4e4e0") : accent,
-                  border: "none", color: (!prompt && !isStream) ? muted : "#fff",
-                  fontSize: 13, fontWeight: 700, cursor: (!prompt && !isStream) ? "not-allowed" : "pointer",
+                  padding: "11px", background: !canSend ? (isDark ? "#1a1a20" : "#e4e4e0") : accent,
+                  border: "none", color: !canSend ? muted : "#fff",
+                  fontSize: 13, fontWeight: 700, cursor: !canSend ? "not-allowed" : "pointer",
                   transition: "all 0.15s", opacity: isLoading ? 0.7 : 1,
                 }}>
                 {isLoading ? <Loader2 size={14} style={{ animation: "spin 0.8s linear infinite" }} /> : <Send size={14} />}
