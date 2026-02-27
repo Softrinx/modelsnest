@@ -157,10 +157,11 @@ const MOCK_RESPONSES: Record<string, (prompt: string, params: any) => any> = {
 }
 
 /* ─── Code block ─────────────────────────────────────────────────────────── */
-function CodeBlock({ code, lang, isDark, border }: { code: string; lang: string; isDark: boolean; border: string }) {
+function CodeBlock({ code, lang, isDark, border }: { code?: string; lang: string; isDark: boolean; border: string }) {
   const [copied, setCopied] = useState(false)
-  const copy = () => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1600) }
-  const lines  = code.split("\n")
+  const safeCode = typeof code === "string" ? code : ""
+  const copy = () => { navigator.clipboard.writeText(safeCode); setCopied(true); setTimeout(() => setCopied(false), 1600) }
+  const lines  = safeCode.split("\n")
   const codeBg = isDark ? "#080809" : "#fafaf9"
   const gutterC= isDark ? "#333340" : "#d6d3d1"
   const lineC  = isDark ? "#c9c9d4" : "#1c1917"
@@ -612,14 +613,22 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
         const supabase = createClient()
         const { data: modelRow, error: modelError } = await supabase
           .from("ai_models")
-          .select("id, slug, name, provider, category_slug, docs_page_color, docs_page_description")
+          .select("id, slug, name, provider, category_slug, display_color, card_description")
           .eq("slug", modelSlug)
           .single()
         if (modelError || !modelRow) throw new Error("Model not found")
 
         const { data: docRow, error: docError } = await supabase
           .from("ai_model_docs").select("*").eq("model_id", modelRow.id).single()
-        if (docError) throw docError
+        if (docError && docError.code !== "PGRST116") throw docError
+
+        const { data: featureRows, error: featureError } = await supabase
+          .from("ai_model_features")
+          .select("feature_text")
+          .eq("model_id", modelRow.id)
+          .eq("source", "docs_page")
+          .order("sort_order", { ascending: true })
+        if (featureError) throw featureError
 
         const { data: stepsRows, error: stepsError } = await supabase
           .from("ai_model_doc_steps").select("*").eq("model_id", modelRow.id).order("step_order", { ascending: true })
@@ -630,20 +639,40 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
         if (paramError) throw paramError
 
         const { data: exampleRows, error: exampleError } = await supabase
-          .from("ai_model_doc_examples").select("*").eq("model_id", modelRow.id).order("language", { ascending: true })
+          .from("ai_model_doc_examples").select("*").eq("model_id", modelRow.id).order("sort_order", { ascending: true })
         if (exampleError) throw exampleError
 
         const { data: pricingRow, error: pricingError } = await supabase
           .from("ai_model_pricing").select("*").eq("model_id", modelRow.id).single()
         if (pricingError && pricingError.code !== "PGRST116") throw pricingError
 
-        let features: string[] = []
+        let features: string[] = (featureRows ?? []).map((row) => row.feature_text).filter(Boolean)
         try {
-          if (docRow.docs_page_payload?.features) features = docRow.docs_page_payload.features
+          if (!features.length && docRow?.docs_page_payload?.features) {
+            features = docRow.docs_page_payload.features
+          }
         } catch (e) { features = [] }
 
         const examplesMap: Record<string, string> = {}
-        for (const ex of exampleRows ?? []) examplesMap[ex.language] = ex.code_example
+        for (const ex of exampleRows ?? []) {
+          const language = String(ex.language || "").trim()
+          if (!language) continue
+          const normalized = language.toLowerCase()
+          if (normalized === "python") examplesMap.Python = ex.code_example
+          else if (normalized === "javascript" || normalized === "js" || normalized === "node") examplesMap.JavaScript = ex.code_example
+          else if (normalized === "curl" || normalized === "curl") examplesMap.cURL = ex.code_example
+          else examplesMap[language] = ex.code_example
+        }
+
+        try {
+          if (docRow?.docs_page_payload?.examples && typeof docRow.docs_page_payload.examples === "object") {
+            for (const [language, code] of Object.entries(docRow.docs_page_payload.examples)) {
+              if (typeof code === "string" && !examplesMap[language]) {
+                examplesMap[language] = code
+              }
+            }
+          }
+        } catch {}
 
         const paramsArray = (paramRows ?? []).map(p => ({
           name: p.param_name, type: p.param_type, req: p.is_required,
@@ -653,14 +682,16 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
 
         const modelData = {
           name: modelRow.name, provider: modelRow.provider, category: modelRow.category_slug,
-          color: modelRow.docs_page_color || "#6366f1",
-          description: modelRow.docs_page_description || "",
+          color: modelRow.display_color || "#6366f1",
+          description: docRow?.docs_description || modelRow.card_description || "",
           features, steps: stepsArray,
-          endpoint: docRow.endpoint_info
-            ? JSON.parse(typeof docRow.endpoint_info === "string" ? docRow.endpoint_info : JSON.stringify(docRow.endpoint_info))
-            : { method: "POST", path: "/api/endpoint", status: "Stable" },
+          endpoint: {
+            method: docRow?.endpoint_method || "POST",
+            path: docRow?.endpoint_path || "/api/v1/chat/completions",
+            status: docRow?.endpoint_status || "Stable",
+          },
           params: paramsArray,
-          response: docRow.response_schema || "{}",
+          response: docRow?.response_example || "{}",
           examples: examplesMap,
           pricing: pricingRow
             ? { input: String(pricingRow.input_price), output: String(pricingRow.output_price), unit: pricingRow.price_unit || "1K tokens" }
@@ -685,6 +716,13 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
   const muted    = isDark ? "#52525b" : "#a1a1aa"
   const subtext  = isDark ? "#71717a" : "#71717a"
   const accent   = model?.color || "#6366f1"
+  const quickstartExample =
+    model?.examples?.Python ||
+    model?.examples?.python ||
+    model?.examples?.JavaScript ||
+    model?.examples?.cURL ||
+    Object.values(model?.examples ?? {}).find((value) => typeof value === "string") ||
+    ""
 
   // Playground inserted as second tab (index 1)
   const SECTIONS = [
@@ -919,7 +957,7 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                 </div>
                 <div>
                   <h3 style={{ fontSize: 12, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Your first request</h3>
-                  <CodeBlock code={model.examples["Python"]} lang="Python" isDark={isDark} border={border} />
+                  <CodeBlock code={quickstartExample as string} lang="Python" isDark={isDark} border={border} />
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <Link href="/dashboard/apis" style={{ textDecoration: "none" }}>
