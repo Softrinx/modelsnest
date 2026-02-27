@@ -998,9 +998,9 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
     return (
       <div style={{ minHeight: "100vh", background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
         <p style={{ fontSize: 16, fontWeight: 700, color: text }}>Model not found</p>
-        <Link href="/dashboard/models/docs" style={{ textDecoration: "none" }}>
+        <Link href="/dashboard/models" style={{ textDecoration: "none" }}>
           <button style={{ marginTop: 16, padding: "8px 16px", borderRadius: 8, background: "var(--color-primary)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}>
-            Back to Docs
+            Back to Models
           </button>
         </Link>
       </div>
@@ -1023,11 +1023,11 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
           background: isDark ? `radial-gradient(ellipse,${accent}14 0%,transparent 70%)` : "transparent", pointerEvents: "none" }} />
 
         <div style={{ position: "relative", zIndex: 1 }}>
-          <Link href="/dashboard/models/docs" style={{ textDecoration: "none" }}>
+          <Link href="/dashboard/models" style={{ textDecoration: "none" }}>
             <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", marginBottom: 16, background: "transparent", border: `1px solid ${border}`, color: muted, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
               onMouseEnter={e => { e.currentTarget.style.color = text; e.currentTarget.style.borderColor = accent }}
               onMouseLeave={e => { e.currentTarget.style.color = muted; e.currentTarget.style.borderColor = border }}>
-              <ArrowLeft size={13} /> Back to Docs
+              <ArrowLeft size={13} /> Back to Models
             </button>
           </Link>
 
