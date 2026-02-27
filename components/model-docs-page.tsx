@@ -13,6 +13,7 @@ import {
   Sliders, Eye, EyeOff, AlertCircle, CheckCircle2
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { getFirstApiTokenForPlayground } from "@/app/actions/api-tokens"
 import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ModelDocsPageProps { user: DashboardUser; modelSlug: string }
@@ -66,6 +67,7 @@ const MODEL_DB: Record<string, any> = {
 }
 
 const buildFallback = (slug: string) => ({
+  slug,
   name: slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
   provider: "Modelsnest", category: "llm", color: "#6366f1",
   description: "Full documentation for this model is coming soon. It is available via the Modelsnest API and follows the standard completions interface.",
@@ -236,6 +238,9 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
   const [response, setResponse]       = useState<any>(null)
   const [isLoading, setIsLoading]     = useState(false)
   const [latency, setLatency]         = useState<number | null>(null)
+  const [statusCode, setStatusCode]   = useState<number | null>(null)
+  const [statusText, setStatusText]   = useState<string>("")
+  const [responseType, setResponseType] = useState<string>("application/json")
   const [hasRun, setHasRun]           = useState(false)
   const [responseTab, setResponseTab] = useState<"pretty" | "raw">("pretty")
   const [copiedResp, setCopiedResp]   = useState(false)
@@ -263,28 +268,111 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
     setIsLoading(true)
     setHasRun(true)
     const t0 = performance.now()
-    await new Promise(r => setTimeout(r, 600 + Math.random() * 800))
-    const t1 = performance.now()
-    const params = {
-      model: model.name,
-      temperature,
-      max_tokens: maxTokens,
-      duration_seconds: durationSeconds,
-      image_size: imageSize,
-      voice: voiceName,
-      system: systemPrompt,
-    }
-    const requestInput = isImageGeneration
-      ? (imagePrompt || imageUrl)
-      : isTranscription
-        ? audioUrl
-        : textInput
+    try {
+      const tokenResult = await getFirstApiTokenForPlayground()
+      if (!tokenResult.success || typeof tokenResult.token !== "string") {
+        setStatusCode(400)
+        setStatusText("Missing API Key")
+        setResponseType("application/json")
+        setResponse({
+          success: false,
+          code: tokenResult.code || "NO_API_TOKENS",
+          message: tokenResult.error || "No API token found. Generate one in Dashboard > API Tokens.",
+          action: "Please generate an API key first.",
+        })
+        return
+      }
 
-    const fn = MOCK_RESPONSES[normalizedCategory] ?? MOCK_RESPONSES["text-generation"]
-    setResponse(fn(requestInput, params))
-    setLatency(Math.round(t1 - t0))
-    setIsLoading(false)
-    setResponseTab("pretty")
+      const apiToken = tokenResult.token
+      const endpointPath = model?.endpoint?.path?.startsWith("/api")
+        ? model.endpoint.path
+        : `/api${model?.endpoint?.path || "/v1/chat/completions"}`
+      const modelSlug = model?.slug || model?.name
+
+      let requestInit: RequestInit
+      if (isTranscription) {
+        const formData = new FormData()
+        formData.append("model", modelSlug)
+        formData.append("duration_seconds", String(durationSeconds))
+        requestInit = {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+          },
+          body: formData,
+        }
+      } else {
+        const body = isTextGeneration
+          ? {
+              model: modelSlug,
+              messages: [
+                ...(systemPrompt.trim() ? [{ role: "system", content: systemPrompt.trim() }] : []),
+                { role: "user", content: textInput },
+              ],
+              temperature,
+              max_tokens: maxTokens,
+            }
+          : isImageGeneration
+            ? {
+                model: modelSlug,
+                prompt: imagePrompt || "Generate image",
+                reference_image: imageUrl || undefined,
+                num_images: 1,
+              }
+            : isVideoGeneration
+              ? {
+                  model: modelSlug,
+                  duration_seconds: durationSeconds,
+                  prompt: textInput,
+                }
+              : isVoiceSynthesis
+                ? {
+                    model: modelSlug,
+                    text: textInput,
+                    voice: voiceName,
+                  }
+                : {
+                    model: modelSlug,
+                    prompt: textInput,
+                  }
+
+        requestInit = {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiToken}`,
+          },
+          body: JSON.stringify(body),
+        }
+      }
+
+      const res = await fetch(endpointPath, requestInit)
+      const contentType = res.headers.get("content-type") || "application/json"
+      const payload = contentType.includes("application/json")
+        ? await res.json().catch(() => ({ error: "Invalid JSON response" }))
+        : await res.text().catch(() => "")
+
+      setStatusCode(res.status)
+      setStatusText(res.statusText || (res.ok ? "OK" : "Request Failed"))
+      setResponseType(contentType)
+      setResponse(payload)
+      const t1 = performance.now()
+      setLatency(Math.round(t1 - t0))
+      setResponseTab("pretty")
+    } catch (error) {
+      const t1 = performance.now()
+      setLatency(Math.round(t1 - t0))
+      setStatusCode(500)
+      setStatusText("Request Error")
+      setResponseType("application/json")
+      setResponse({
+        success: false,
+        message: "Playground request failed",
+        error: error instanceof Error ? error.message : String(error),
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleReset = () => {
@@ -293,6 +381,9 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
     setImageUrl("")
     setAudioUrl("")
     setResponse(null)
+    setStatusCode(null)
+    setStatusText("")
+    setResponseType("application/json")
     setHasRun(false)
     setLatency(null)
   }
@@ -618,14 +709,32 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
             {response && !isLoading && (
               <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
                 {/* Status bar */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#10b98110", borderBottom: `1px solid #10b98120` }}>
-                  <CheckCircle2 size={13} style={{ color: "#10b981" }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#10b981" }}>200 OK</span>
-                  <span style={{ fontSize: 11, color: muted, marginLeft: "auto" }}>application/json</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: (statusCode && statusCode >= 400) ? "#ef444410" : "#10b98110", borderBottom: (statusCode && statusCode >= 400) ? `1px solid #ef444420` : `1px solid #10b98120` }}>
+                  <CheckCircle2 size={13} style={{ color: (statusCode && statusCode >= 400) ? "#ef4444" : "#10b981" }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: (statusCode && statusCode >= 400) ? "#ef4444" : "#10b981" }}>
+                    {statusCode ?? 200} {statusText || "OK"}
+                  </span>
+                  <span style={{ fontSize: 11, color: muted, marginLeft: "auto" }}>{responseType}</span>
                 </div>
 
                 {responseTab === "pretty" && (
                   <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+                    {(response?.code === "NO_API_TOKENS" || statusText === "Missing API Key") && (
+                      <div style={{ marginBottom: 16, padding: "14px 16px", background: "#ef444410", border: "1px solid #ef444430" }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#ef4444", marginBottom: 6 }}>
+                          API key required
+                        </div>
+                        <p style={{ fontSize: 12, color: subtext, margin: "0 0 10px" }}>
+                          Generate an API key from your dashboard to send live requests from Playground.
+                        </p>
+                        <Link href="/dashboard/apis" style={{ textDecoration: "none" }}>
+                          <button style={{ padding: "8px 12px", background: accent, border: "none", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                            Create API Key
+                          </button>
+                        </Link>
+                      </div>
+                    )}
+
                     {/* Content block */}
                     {(response.choices || response.candidates) && (
                       <div style={{ marginBottom: 16 }}>
@@ -812,6 +921,7 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
         const stepsArray = (stepsRows ?? []).map(s => s.step_text)
 
         const modelData = {
+          slug: modelRow.slug,
           name: modelRow.name, provider: modelRow.provider, category: modelRow.category_slug,
           color: modelRow.display_color || "#6366f1",
           description: docRow?.docs_description || modelRow.card_description || "",

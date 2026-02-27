@@ -304,3 +304,58 @@ export async function verifyApiToken(token: string) {
     return null
   }
 }
+
+export async function getFirstApiTokenForPlayground() {
+  try {
+    const { supabase, user, error: authError } = await requireAuthUser()
+    if (authError || !user) {
+      return { success: false, error: authError ?? "Not authenticated", code: "UNAUTHENTICATED" }
+    }
+
+    const { data: firstToken, error: tokenError } = await supabase
+      .from("api_tokens")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (tokenError) {
+      console.error("Error loading first token:", tokenError)
+      return { success: false, error: "Failed to load API tokens", code: "TOKEN_QUERY_FAILED" }
+    }
+
+    if (!firstToken) {
+      return { success: false, error: "No API token found. Generate one first.", code: "NO_API_TOKENS" }
+    }
+
+    const token = generateApiToken()
+    const tokenHash = hashApiToken(token)
+    const tokenPrefix = getTokenPrefix(token)
+
+    const { error: updateError } = await supabase
+      .from("api_tokens")
+      .update({
+        token_hash: tokenHash,
+        token_prefix: tokenPrefix,
+        is_active: true,
+      })
+      .eq("id", firstToken.id)
+      .eq("user_id", user.id)
+
+    if (updateError) {
+      console.error("Error rotating first token:", updateError)
+      return { success: false, error: "Failed to prepare API token", code: "TOKEN_ROTATE_FAILED" }
+    }
+
+    return {
+      success: true,
+      token,
+      tokenId: firstToken.id,
+    }
+  } catch (error) {
+    console.error("Error preparing first token for playground:", error)
+    return { success: false, error: "Failed to prepare API token", code: "PLAYGROUND_TOKEN_ERROR" }
+  }
+}
