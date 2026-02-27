@@ -1,0 +1,244 @@
+{
+  "info": {
+    "_postman_id": "7b0c2db7-2ca2-4a3a-ae0f-4b4bc9d0ff31",
+    "name": "Modelsnest API v1",
+    "description": "Postman collection for Modelsnest v1 endpoints, organized by type.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "DeepSeek Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"deepseek\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Explain quantum computing simply in 3 bullets.\" }\n  ],\n  \"max_tokens\": 250,\n  \"temperature\": 0.4\n}"
+            },
+            "url": "{{baseUrl}}/v1/chat/completions"
+          }
+        },
+        {
+          "name": "GPT-4 Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"gpt-4\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Give a short explanation of eventual consistency.\" }\n  ],\n  \"max_tokens\": 220,\n  \"temperature\": 0.3\n}"
+            },
+            "url": "{{baseUrl}}/v1/chat/completions"
+          }
+        },
+        {
+          "name": "Qwen-7B Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"qwen-7b\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Translate good morning to French and Hindi.\" }\n  ],\n  \"max_tokens\": 160,\n  \"temperature\": 0.2\n}"
+            },
+            "url": "{{baseUrl}}/v1/chat/completions"
+          }
+        },
+        {
+          "name": "Gemini Pro Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"gemini-pro\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Write a 2-line summary of transformers in ML.\" }\n  ],\n  \"max_tokens\": 180,\n  \"temperature\": 0.3\n}"
+            },
+            "url": "{{baseUrl}}/v1/chat/completions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audio Transcription",
+      "item": [
+        {
+          "name": "Whisper Transcription",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "model", "value": "whisper-1", "type": "text" },
+                { "key": "duration_seconds", "value": "75", "type": "text" },
+                { "key": "audio_url", "value": "{{audioUrl}}", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/v1/audio/transcriptions"
+          }
+        },
+        {
+          "name": "Deepgram Nova-3 Transcription",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "model", "value": "deepgram-nova3", "type": "text" },
+                { "key": "duration_seconds", "value": "40", "type": "text" },
+                { "key": "audio_url", "value": "{{audioUrl}}", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/v1/audio/transcriptions"
+          }
+        },
+        {
+          "name": "AssemblyAI Universal-1 Transcription",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "model", "value": "assemblyai-universal1", "type": "text" },
+                { "key": "duration_seconds", "value": "50", "type": "text" },
+                { "key": "audio_url", "value": "{{audioUrl}}", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/v1/audio/transcriptions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Text-to-Speech",
+      "item": [
+        {
+          "name": "ElevenLabs v3",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"elevenlabs-v3\",\n  \"text\": \"Welcome to Modelsnest test suite.\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/text-to-speech"
+          }
+        },
+        {
+          "name": "PlayHT Ultra",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"playht-ultra\",\n  \"text\": \"This is a quick synthetic voice billing test.\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/text-to-speech"
+          }
+        },
+        {
+          "name": "Coqui TTS",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"coqui-tts\",\n  \"text\": \"Coqui test synthesis line.\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/text-to-speech"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Image Generation",
+      "item": [
+        {
+          "name": "Midjourney v5",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"midjourney-v5\",\n  \"prompt\": \"Sunset over mountains in cinematic style\",\n  \"num_images\": 1\n}"
+            },
+            "url": "{{baseUrl}}/v1/images/generate"
+          }
+        },
+        {
+          "name": "Stable Diffusion v2",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"stable-diffusion-v2\",\n  \"prompt\": \"A futuristic city skyline at night\",\n  \"num_images\": 2\n}"
+            },
+            "url": "{{baseUrl}}/v1/images/generate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Video Generation",
+      "item": [
+        {
+          "name": "Runway Gen-3",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"runway-gen-3\",\n  \"duration_seconds\": 8,\n  \"prompt\": \"Aerial shot of coastline at sunrise\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/video/generations"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api" },
+    { "key": "apiToken", "value": "ptr_YOUR_API_TOKEN_HERE" },
+    { "key": "audioUrl", "value": "https://example.com/sample-audio.mp3" }
+  ]
+}
