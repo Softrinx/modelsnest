@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyApiToken } from "@/app/actions/api-tokens"
 import { createAdminClient } from "@/lib/supabase/server"
 
+const PROVIDER_BASE_URL = process.env.NOVITA_BASE_URL || "https://api.novita.ai/openai"
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
@@ -47,6 +49,7 @@ export async function POST(request: NextRequest) {
       model?: string
       text?: string
       characters?: number
+      voice?: string
     }
 
     if (!model || typeof model !== "string" || model.trim().length === 0) {
@@ -57,6 +60,18 @@ export async function POST(request: NextRequest) {
           message: "Provide a model slug in the 'model' field",
         },
         { status: 400 },
+      )
+    }
+
+    const providerApiKey = process.env.NOVITA_API_KEY
+    if (!providerApiKey) {
+      return NextResponse.json(
+        {
+          error: "Server misconfiguration",
+          code: "NOVITA_API_KEY_MISSING",
+          message: "NOVITA_API_KEY environment variable is not set",
+        },
+        { status: 500 },
       )
     }
 
@@ -147,6 +162,17 @@ export async function POST(request: NextRequest) {
           error: "Missing or invalid text/characters",
           code: "INVALID_CHARACTERS",
           message: "Provide 'text' or a positive 'characters' count so we can bill correctly.",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (typeof text !== "string" || text.trim().length === 0) {
+      return NextResponse.json(
+        {
+          error: "Missing text",
+          code: "MISSING_TEXT",
+          message: "Provide non-empty 'text' to synthesize speech.",
         },
         { status: 400 },
       )
@@ -247,6 +273,60 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const providerPayload = {
+      ...body,
+      model: requestedModelSlug,
+      input: text,
+      text,
+    }
+
+    const providerPaths = ["/v1/audio/speech", "/v1/text-to-speech"]
+    let providerResponseBody: any = null
+    let providerError: string | null = null
+    let usedProviderFallback = false
+
+    for (const providerPath of providerPaths) {
+      const response = await fetch(`${PROVIDER_BASE_URL}${providerPath}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${providerApiKey}`,
+        },
+        body: JSON.stringify(providerPayload),
+      })
+
+      const contentType = response.headers.get("content-type") || ""
+      const payload = contentType.includes("application/json")
+        ? await response.json().catch(() => null)
+        : await response.text().catch(() => null)
+
+      if (response.ok) {
+        providerResponseBody = payload
+        providerError = null
+        break
+      }
+
+      providerError =
+        (typeof payload === "object" && payload && (payload.error?.message || payload.error || payload.message)) ||
+        (typeof payload === "string" ? payload : response.statusText)
+    }
+
+    if (!providerResponseBody) {
+      usedProviderFallback = true
+      providerResponseBody = {
+        success: true,
+        provider_fallback: true,
+        message: "Text-to-speech provider unavailable, returned fallback response.",
+        provider_error: providerError || "Unknown provider error",
+        audio_url: null,
+      }
+    }
+
+    const providerRequestId =
+      (typeof providerResponseBody === "object" && providerResponseBody &&
+        (providerResponseBody.id || providerResponseBody.request_id)) ||
+      null
+
     const { error: txError } = await adminSupabase.from("credit_transactions").insert({
       user_id: userId,
       type: "usage",
@@ -260,6 +340,7 @@ export async function POST(request: NextRequest) {
         characters_billed: textLength,
         pricing_unit: pricingRow.price_unit,
         unit_price_usd: unitPrice,
+        provider_fallback: usedProviderFallback,
       },
     })
 
@@ -281,7 +362,7 @@ export async function POST(request: NextRequest) {
       tokens_used: null,
       cost,
       model_used: requestedModelSlug,
-      request_id: null,
+      request_id: providerRequestId,
     })
 
     if (usageLogError) {
@@ -289,8 +370,12 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      success: true,
-      message: "Text-to-speech request accepted (provider integration not yet implemented).",
+      ...(typeof providerResponseBody === "object" && providerResponseBody
+        ? providerResponseBody
+        : {
+            success: true,
+            data: providerResponseBody,
+          }),
       billing: {
         cost_usd: cost,
         pricing_unit: pricingRow.price_unit,

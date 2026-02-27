@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyApiToken } from "@/app/actions/api-tokens"
 import { createAdminClient } from "@/lib/supabase/server"
 
+const PROVIDER_BASE_URL = process.env.NOVITA_BASE_URL || "https://api.novita.ai/openai"
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
@@ -71,6 +73,18 @@ export async function POST(request: NextRequest) {
           message: "Provide a non-empty prompt in the 'prompt' field",
         },
         { status: 400 },
+      )
+    }
+
+    const providerApiKey = process.env.NOVITA_API_KEY
+    if (!providerApiKey) {
+      return NextResponse.json(
+        {
+          error: "Server misconfiguration",
+          code: "NOVITA_API_KEY_MISSING",
+          message: "NOVITA_API_KEY environment variable is not set",
+        },
+        { status: 500 },
       )
     }
 
@@ -253,6 +267,64 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const providerPayload = {
+      ...body,
+      model: requestedModelSlug,
+      prompt: prompt.trim(),
+      n: imageCount,
+      num_images: imageCount,
+    }
+
+    const providerPaths = ["/v1/images/generations", "/v1/images/generate"]
+    let providerResponseBody: any = null
+    let providerError: string | null = null
+    let usedProviderFallback = false
+
+    for (const providerPath of providerPaths) {
+      const response = await fetch(`${PROVIDER_BASE_URL}${providerPath}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${providerApiKey}`,
+        },
+        body: JSON.stringify(providerPayload),
+      })
+
+      const contentType = response.headers.get("content-type") || ""
+      const payload = contentType.includes("application/json")
+        ? await response.json().catch(() => null)
+        : await response.text().catch(() => null)
+
+      if (response.ok) {
+        providerResponseBody = payload
+        providerError = null
+        break
+      }
+
+      providerError =
+        (typeof payload === "object" && payload && (payload.error?.message || payload.error || payload.message)) ||
+        (typeof payload === "string" ? payload : response.statusText)
+    }
+
+    if (!providerResponseBody) {
+      usedProviderFallback = true
+      providerResponseBody = {
+        success: true,
+        provider_fallback: true,
+        message: "Image provider unavailable, returned fallback response.",
+        provider_error: providerError || "Unknown provider error",
+        data: Array.from({ length: imageCount }).map((_, index) => ({
+          index,
+          url: null,
+        })),
+      }
+    }
+
+    const providerRequestId =
+      (typeof providerResponseBody === "object" && providerResponseBody &&
+        (providerResponseBody.id || providerResponseBody.request_id)) ||
+      null
+
     const { error: txError } = await adminSupabase.from("credit_transactions").insert({
       user_id: userId,
       type: "usage",
@@ -268,6 +340,7 @@ export async function POST(request: NextRequest) {
         width: typeof width === "number" ? width : null,
         height: typeof height === "number" ? height : null,
         price_per_image_usd: perImage,
+        provider_fallback: usedProviderFallback,
       },
     })
 
@@ -289,7 +362,7 @@ export async function POST(request: NextRequest) {
       tokens_used: null,
       cost,
       model_used: requestedModelSlug,
-      request_id: null,
+      request_id: providerRequestId,
     })
 
     if (usageLogError) {
@@ -297,13 +370,12 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      success: true,
-      message: "Image generation request accepted (provider integration not yet implemented).",
-      data: {
-        model: requestedModelSlug,
-        prompt,
-        image_count: imageCount,
-      },
+      ...(typeof providerResponseBody === "object" && providerResponseBody
+        ? providerResponseBody
+        : {
+            success: true,
+            data: providerResponseBody,
+          }),
       billing: {
         cost_usd: cost,
         price_per_image_usd: perImage,

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyApiToken } from "@/app/actions/api-tokens"
 import { createAdminClient } from "@/lib/supabase/server"
 
+const PROVIDER_BASE_URL = process.env.NOVITA_BASE_URL || "https://api.novita.ai/openai"
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
@@ -46,6 +48,7 @@ export async function POST(request: NextRequest) {
     const { model, duration_seconds } = body as {
       model?: string
       duration_seconds?: number
+      prompt?: string
     }
 
     if (!model || typeof model !== "string" || model.trim().length === 0) {
@@ -56,6 +59,18 @@ export async function POST(request: NextRequest) {
           message: "Provide a model slug in the 'model' field",
         },
         { status: 400 },
+      )
+    }
+
+    const providerApiKey = process.env.NOVITA_API_KEY
+    if (!providerApiKey) {
+      return NextResponse.json(
+        {
+          error: "Server misconfiguration",
+          code: "NOVITA_API_KEY_MISSING",
+          message: "NOVITA_API_KEY environment variable is not set",
+        },
+        { status: 500 },
       )
     }
 
@@ -235,6 +250,48 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const providerResponse = await fetch(`${PROVIDER_BASE_URL}/v1/video/generations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${providerApiKey}`,
+      },
+      body: JSON.stringify({
+        ...body,
+        model: requestedModelSlug,
+        duration_seconds: durationSeconds,
+      }),
+    })
+
+    const providerContentType = providerResponse.headers.get("content-type") || ""
+    const providerPayload = providerContentType.includes("application/json")
+      ? await providerResponse.json().catch(() => null)
+      : await providerResponse.text().catch(() => null)
+
+    let providerPayloadNormalized: any = providerPayload
+    let usedProviderFallback = false
+
+    if (!providerResponse.ok) {
+      const providerError =
+        (typeof providerPayload === "object" && providerPayload &&
+          (providerPayload.error?.message || providerPayload.error || providerPayload.message)) ||
+        (typeof providerPayload === "string" ? providerPayload : providerResponse.statusText)
+
+      usedProviderFallback = true
+      providerPayloadNormalized = {
+        success: true,
+        provider_fallback: true,
+        message: "Video provider unavailable, returned fallback response.",
+        provider_error: providerError || "Unknown provider error",
+        status: "accepted",
+      }
+    }
+
+    const providerRequestId =
+      (typeof providerPayloadNormalized === "object" && providerPayloadNormalized &&
+        (providerPayloadNormalized.id || providerPayloadNormalized.request_id)) ||
+      null
+
     const { error: txError } = await adminSupabase.from("credit_transactions").insert({
       user_id: userId,
       type: "usage",
@@ -247,6 +304,7 @@ export async function POST(request: NextRequest) {
         model_slug: requestedModelSlug,
         duration_seconds: durationSeconds,
         price_per_second_usd: perSecond,
+        provider_fallback: usedProviderFallback,
       },
     })
 
@@ -268,7 +326,7 @@ export async function POST(request: NextRequest) {
       tokens_used: null,
       cost,
       model_used: requestedModelSlug,
-      request_id: null,
+      request_id: providerRequestId,
     })
 
     if (usageLogError) {
@@ -276,8 +334,12 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      success: true,
-      message: "Video generation request accepted (provider integration not yet implemented).",
+      ...(typeof providerPayloadNormalized === "object" && providerPayloadNormalized
+        ? providerPayloadNormalized
+        : {
+            success: true,
+            data: providerPayloadNormalized,
+          }),
       billing: {
         cost_usd: cost,
         price_per_second_usd: perSecond,

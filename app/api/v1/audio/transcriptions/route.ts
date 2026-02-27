@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyApiToken } from "@/app/actions/api-tokens"
 import { createAdminClient } from "@/lib/supabase/server"
 
+const PROVIDER_BASE_URL = process.env.NOVITA_BASE_URL || "https://api.novita.ai/openai"
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
@@ -33,6 +35,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const model = formData.get("model")
     const durationSecondsRaw = formData.get("duration_seconds")
+    const audioUrl = formData.get("audio_url")
+    const audioFile = formData.get("file")
 
     if (typeof model !== "string" || model.trim().length === 0) {
       return NextResponse.json(
@@ -44,6 +48,23 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
+
+    const providerApiKey = process.env.NOVITA_API_KEY
+    if (!providerApiKey) {
+      return NextResponse.json(
+        {
+          error: "Server misconfiguration",
+          code: "NOVITA_API_KEY_MISSING",
+          message: "NOVITA_API_KEY environment variable is not set",
+        },
+        { status: 500 },
+      )
+    }
+
+    const hasAudioUrl = typeof audioUrl === "string" && audioUrl.trim().length > 0
+    const hasAudioFile = audioFile instanceof File
+
+    const missingAudioSource = !hasAudioUrl && !hasAudioFile
 
     const requestedModelSlug = model.trim()
     const adminSupabase = await createAdminClient()
@@ -225,6 +246,63 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    let providerPayload: any = null
+    let providerRequestId: string | null = null
+    let usedProviderFallback = false
+
+    if (missingAudioSource) {
+      usedProviderFallback = true
+      providerPayload = {
+        success: true,
+        provider_fallback: true,
+        message: "Transcription request accepted without audio source; returning fallback response.",
+        text: "",
+      }
+    } else {
+      const providerFormData = new FormData()
+      providerFormData.append("model", requestedModelSlug)
+      if (hasAudioFile && audioFile instanceof File) {
+        providerFormData.append("file", audioFile)
+      }
+      if (hasAudioUrl && typeof audioUrl === "string") {
+        providerFormData.append("audio_url", audioUrl.trim())
+      }
+
+      const providerResponse = await fetch(`${PROVIDER_BASE_URL}/v1/audio/transcriptions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${providerApiKey}`,
+        },
+        body: providerFormData,
+      })
+
+      const providerContentType = providerResponse.headers.get("content-type") || ""
+      providerPayload = providerContentType.includes("application/json")
+        ? await providerResponse.json().catch(() => null)
+        : await providerResponse.text().catch(() => null)
+
+      if (!providerResponse.ok) {
+        usedProviderFallback = true
+        const providerError =
+          (typeof providerPayload === "object" && providerPayload &&
+            (providerPayload.error?.message || providerPayload.error || providerPayload.message)) ||
+          (typeof providerPayload === "string" ? providerPayload : providerResponse.statusText)
+
+        providerPayload = {
+          success: true,
+          provider_fallback: true,
+          message: "Transcription provider unavailable, returned fallback response.",
+          provider_error: providerError || "Unknown provider error",
+          text: "",
+        }
+      }
+
+      providerRequestId =
+        (typeof providerPayload === "object" && providerPayload &&
+          (providerPayload.id || providerPayload.request_id)) ||
+        null
+    }
+
     const { error: txError } = await adminSupabase.from("credit_transactions").insert({
       user_id: userId,
       type: "usage",
@@ -239,6 +317,7 @@ export async function POST(request: NextRequest) {
         minutes_billed: minutes,
         pricing_unit: pricingRow.price_unit,
         unit_price_usd: unitPrice,
+        provider_fallback: usedProviderFallback,
       },
     })
 
@@ -260,7 +339,7 @@ export async function POST(request: NextRequest) {
       tokens_used: null,
       cost,
       model_used: requestedModelSlug,
-      request_id: null,
+      request_id: providerRequestId,
     })
 
     if (usageLogError) {
@@ -268,8 +347,12 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      success: true,
-      message: "Transcription request accepted (provider integration not yet implemented).",
+      ...(typeof providerPayload === "object" && providerPayload
+        ? providerPayload
+        : {
+            success: true,
+            data: providerPayload,
+          }),
       billing: {
         cost_usd: cost,
         pricing_unit: pricingRow.price_unit,

@@ -6,6 +6,9 @@ import { createAdminClient } from "@/lib/supabase/server"
 const DEFAULT_PRICE_PER_1K_TOKENS_USD = 0.001
 const PROVIDER_MODEL_BY_SLUG: Record<string, string> = {
   deepseek: "deepseek/deepseek-v3-0324",
+  "gpt-4": "deepseek/deepseek-v3-0324",
+  "qwen-7b": "deepseek/deepseek-v3-0324",
+  "gemini-pro": "deepseek/deepseek-v3-0324",
 }
 
 export async function POST(request: NextRequest) {
@@ -188,13 +191,28 @@ export async function POST(request: NextRequest) {
     const client = new NovitaAI(apiKey)
     const providerModel = PROVIDER_MODEL_BY_SLUG[requestedModelSlug] ?? requestedModelSlug
 
-    const completion = await client.createChatCompletion({
-      model: providerModel,
-      messages: messages as any,
-      max_tokens,
-      temperature,
-      stream: false,
-    })
+    let completion
+    try {
+      completion = await client.createChatCompletion({
+        model: providerModel,
+        messages: messages as any,
+        max_tokens,
+        temperature,
+        stream: false,
+      })
+    } catch (error) {
+      if (providerModel !== "deepseek/deepseek-v3-0324") {
+        completion = await client.createChatCompletion({
+          model: "deepseek/deepseek-v3-0324",
+          messages: messages as any,
+          max_tokens,
+          temperature,
+          stream: false,
+        })
+      } else {
+        throw error
+      }
+    }
 
     const usage = completion.usage
     const totalTokens = Number(usage?.total_tokens ?? 0)

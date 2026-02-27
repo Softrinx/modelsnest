@@ -294,6 +294,9 @@ function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, a
         const formData = new FormData()
         formData.append("model", modelSlug)
         formData.append("duration_seconds", String(durationSeconds))
+        if (audioUrl.trim()) {
+          formData.append("audio_url", audioUrl.trim())
+        }
         requestInit = {
           method: "POST",
           headers: {
