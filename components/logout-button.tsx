@@ -17,6 +17,7 @@ export function LogoutButton({ collapsed = false }: LogoutButtonProps) {
 
   const handleLogout = () => {
     startTransition(async () => {
+      localStorage.removeItem("activeAccount")
       await supabase.auth.signOut()
       router.push("/login")
     })

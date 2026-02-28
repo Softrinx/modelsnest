@@ -3,19 +3,60 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/server"
 
-export async function getBillingInfo() {
+export async function getBillingInfo(targetUserId?: string, teamId?: string) {
   try {
+    console.log("getBillingInfo called with targetUserId:", targetUserId, "teamId:", teamId)
     const supabase = await createClient()
+    const adminSupabase = await createAdminClient()
     const { data: { user }, error } = await supabase.auth.getUser()
 
     if (error || !user) {
       return { success: false, error: "Not authenticated" }
     }
 
-    const { data: creditsRow, error: creditsError } = await supabase
+    let userId = targetUserId || user.id
+
+    // If teamId is provided, fetch the team owner's billing info
+    if (teamId) {
+      // Verify the user is a member of this team
+      const { data: membership, error: membershipError } = await supabase
+        .from("team_members")
+        .select("user_id, status")
+        .eq("team_id", teamId)
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (membershipError) {
+        console.error("Error checking team membership:", membershipError)
+        return { success: false, error: "Failed to verify team access" }
+      }
+
+      if (!membership || membership.status !== "active") {
+        return { success: false, error: "You are not an active member of this team" }
+      }
+
+      // Fetch the team owner's ID
+      const { data: team, error: teamError } = await supabase
+        .from("teams")
+        .select("owner_id")
+        .eq("id", teamId)
+        .single()
+
+      if (teamError || !team) {
+        console.error("Error fetching team:", teamError)
+        return { success: false, error: "Failed to fetch team information" }
+      }
+
+      userId = team.owner_id
+      console.log("Fetching team owner's billing data for userId:", userId, "(current user:", user.id, ")")
+    } else {
+      console.log("Fetching billing data for userId:", userId, "(current user:", user.id, ")")
+    }
+
+    const { data: creditsRow, error: creditsError } = await adminSupabase
       .from("user_credits")
       .select("balance, total_spent, total_topped_up, created_at, updated_at")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle()
 
     if (creditsError) {
@@ -23,10 +64,10 @@ export async function getBillingInfo() {
       return { success: false, error: "Failed to load user credits" }
     }
 
-    const { data: transactionsRows, error: transactionsError } = await supabase
+    const { data: transactionsRows, error: transactionsError } = await adminSupabase
       .from("credit_transactions")
       .select("id, type, amount, description, status, created_at")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(100)
 
@@ -35,10 +76,10 @@ export async function getBillingInfo() {
       return { success: false, error: "Failed to load credit transactions" }
     }
 
-    const { data: usageRows, error: usageError } = await supabase
+    const { data: usageRows, error: usageError } = await adminSupabase
       .from("usage_logs")
       .select("cost, created_at")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(1000)
 
@@ -87,17 +128,32 @@ export async function getBillingInfo() {
       }))
       .sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime())
 
+    // If fetching for team owner or another user, get their user info
+    let userInfo = {
+      id: user.id,
+      email: user.email,
+      name: user.user_metadata?.name ?? null,
+    }
+
+    if (userId !== user.id) {
+      const adminSupabase = await createAdminClient()
+      const { data: targetUser } = await adminSupabase.auth.admin.getUserById(userId)
+      if (targetUser?.user) {
+        userInfo = {
+          id: targetUser.user.id,
+          email: targetUser.user.email ?? "",
+          name: targetUser.user.user_metadata?.name ?? null,
+        }
+      }
+    }
+
     return {
       success: true,
       data: {
         credits,
         transactions,
         monthlyUsage,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.user_metadata?.name ?? null,
-        },
+        user: userInfo,
       },
     }
   } catch (error) {

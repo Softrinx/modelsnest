@@ -7,6 +7,7 @@ import { BillingOverview } from "@/components/billing-overview"
 import { TopUpDialog } from "@/components/top-up-dialog"
 import { useTheme } from "@/contexts/themeContext"
 import { useSidebar } from "@/components/dashboard-layout-controller"
+import { useAccount } from "@/contexts/accountContext"
 import {
   Plus, Download, CheckCircle, AlertCircle, XCircle,
   CreditCard, Shield, Zap, RefreshCw,
@@ -20,6 +21,7 @@ interface BillingMainProps {
 export function BillingMain({ user }: BillingMainProps) {
   const { isDark } = useTheme()
   const { sidebarWidth, isMobile } = useSidebar()
+  const { isTeam, teamId } = useAccount()
 
   const searchParams = useSearchParams()
   const [billingData, setBillingData] = useState<any>(null)
@@ -49,7 +51,11 @@ export function BillingMain({ user }: BillingMainProps) {
   const loadBillingData = async () => {
     try {
       setLoading(true)
-      const result = await getBillingInfo()
+      // Fetch team owner's billing data if in team mode (by passing teamId), otherwise current user's data
+      const result = isTeam && teamId
+        ? await getBillingInfo(undefined, teamId)
+        : await getBillingInfo()
+      console.log("Billing result:", result)
       if (result.success) {
         setBillingData(result.data)
       } else {
@@ -62,7 +68,7 @@ export function BillingMain({ user }: BillingMainProps) {
     }
   }
 
-  useEffect(() => { loadBillingData() }, [])
+  useEffect(() => { loadBillingData() }, [isTeam, teamId])
   useEffect(() => { if (success || error) loadBillingData() }, [success, error])
 
   // ── Theme tokens ─────────────────────────────────────────────────────────────

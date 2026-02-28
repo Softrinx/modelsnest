@@ -60,6 +60,7 @@ export function AdminLoginForm() {
           setError("You do not have admin access")
           setIsLoading(false)
           // Sign out non-admin
+          localStorage.removeItem("activeAccount")
           await supabase.auth.signOut()
           return
         }
