@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyApiToken } from "@/app/actions/api-tokens"
 import { createAdminClient } from "@/lib/supabase/server"
 import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 const PROVIDER_BASE_URL = process.env.NOVITA_BASE_URL || "https://api.novita.ai/openai"
 
@@ -70,6 +71,26 @@ export async function POST(request: NextRequest) {
     const requestedModelSlug = model.trim()
     const adminSupabase = await createAdminClient()
     const userId = tokenInfo.user_id
+
+    const rateLimit = await checkRateLimit(userId, "audio")
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: "Rate limit exceeded",
+          code: "RATE_LIMIT_EXCEEDED",
+          message: rateLimit.reason || "Too many requests",
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter ?? 60),
+            ...(typeof rateLimit.limit === "number" ? { "X-RateLimit-Limit": String(rateLimit.limit) } : {}),
+            ...(typeof rateLimit.remaining === "number" ? { "X-RateLimit-Remaining": String(rateLimit.remaining) } : {}),
+            ...(rateLimit.resetAt ? { "X-RateLimit-Reset": rateLimit.resetAt.toISOString() } : {}),
+          },
+        },
+      )
+    }
 
     const { data: catalogModel, error: catalogError } = await adminSupabase
       .from("ai_models")
@@ -337,8 +358,10 @@ export async function POST(request: NextRequest) {
     const { error: usageLogError } = await adminSupabase.from("usage_logs").insert({
       user_id: userId,
       service_type: "audio_transcription",
+      endpoint: "audio",
       tokens_used: null,
       cost,
+      cost_usd: cost,
       model_used: requestedModelSlug,
       request_id: providerRequestId,
     })

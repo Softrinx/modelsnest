@@ -1,41 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "@/contexts/themeContext"
+import {
+  addRateLimitOverride,
+  deleteRateLimitOverride,
+  updateGlobalRule,
+  type Endpoint,
+  type GlobalRule,
+  type UserOverride,
+} from "@/app/actions/rate-limits"
 import {
   Plus, Trash2, Edit2, CheckCircle2, X,
   AlertCircle, Save, User, Globe,
   MessageSquare, Image, Mic, Video, Zap, ChevronDown,
   Shield, Clock, TrendingUp, Info
 } from "lucide-react"
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-type Endpoint = "chat" | "images" | "audio" | "video" | "tts" | "all"
-
-interface GlobalRule {
-  id: string
-  endpoint: Endpoint
-  requests_per_minute: number
-  requests_per_hour: number
-  requests_per_day: number
-  max_daily_spend_usd: number
-  is_active: boolean
-}
-
-interface UserOverride {
-  id: string
-  user_id: string
-  user_email: string
-  user_name: string
-  endpoint: Endpoint
-  requests_per_minute: number | null
-  requests_per_hour: number | null
-  requests_per_day: number | null
-  max_daily_spend_usd: number | null
-  reason: string
-  created_at: string
-}
 
 // ─── Endpoint config ──────────────────────────────────────────────────────────
 const ENDPOINTS: { id: Endpoint; label: string; path: string; icon: React.ElementType; color: string }[] = [
@@ -46,28 +27,15 @@ const ENDPOINTS: { id: Endpoint; label: string; path: string; icon: React.Elemen
   { id: "tts",    label: "Text-to-Speech",      path: "/api/v1/text-to-speech",       icon: Zap,           color: "#06b6d4" },
 ]
 
-const INITIAL_GLOBAL_RULES: GlobalRule[] = [
-  { id: "1", endpoint: "chat",   requests_per_minute: 60,  requests_per_hour: 1000, requests_per_day: 10000, max_daily_spend_usd: 50,  is_active: true  },
-  { id: "2", endpoint: "images", requests_per_minute: 10,  requests_per_hour: 200,  requests_per_day: 1000,  max_daily_spend_usd: 100, is_active: true  },
-  { id: "3", endpoint: "audio",  requests_per_minute: 20,  requests_per_hour: 400,  requests_per_day: 2000,  max_daily_spend_usd: 30,  is_active: true  },
-  { id: "4", endpoint: "video",  requests_per_minute: 5,   requests_per_hour: 50,   requests_per_day: 200,   max_daily_spend_usd: 200, is_active: false },
-  { id: "5", endpoint: "tts",    requests_per_minute: 30,  requests_per_hour: 500,  requests_per_day: 3000,  max_daily_spend_usd: 20,  is_active: true  },
-]
-
-const INITIAL_OVERRIDES: UserOverride[] = [
-  {
-    id: "1", user_id: "u1", user_email: "enterprise@example.com", user_name: "Enterprise Client",
-    endpoint: "chat", requests_per_minute: 200, requests_per_hour: 5000,
-    requests_per_day: 50000, max_daily_spend_usd: 500,
-    reason: "Enterprise contract — elevated limits agreed", created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  {
-    id: "2", user_id: "u2", user_email: "trial@example.com", user_name: "Trial User",
-    endpoint: "all", requests_per_minute: 5, requests_per_hour: 50,
-    requests_per_day: 200, max_daily_spend_usd: 2,
-    reason: "Free trial — hard spend cap enforced", created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-]
+interface AddOverrideInput {
+  user_email: string
+  endpoint: Endpoint
+  requests_per_minute: number | null
+  requests_per_hour: number | null
+  requests_per_day: number | null
+  max_daily_spend_usd: number | null
+  reason: string
+}
 
 // ─── Style hook ───────────────────────────────────────────────────────────────
 function useStyles(isDark: boolean) {
@@ -199,13 +167,11 @@ function EditGlobalRuleModal({ rule, onClose, onSave, isDark }: {
 
 // ─── Add Override Modal ───────────────────────────────────────────────────────
 function AddOverrideModal({ onClose, onAdd, isDark }: {
-  onClose: () => void; onAdd: (o: Omit<UserOverride, "id" | "created_at">) => void; isDark: boolean
+  onClose: () => void; onAdd: (o: AddOverrideInput) => void; isDark: boolean
 }) {
   const s = useStyles(isDark)
   const allEndpoints = [{ id: "all" as Endpoint, label: "All Endpoints", icon: Globe, color: "#ef4444" }, ...ENDPOINTS]
   const [userEmail, setUserEmail] = useState("")
-  const [userName,  setUserName]  = useState("")
-  const [userId,    setUserId]    = useState("")
   const [endpoint,  setEndpoint]  = useState<Endpoint>("chat")
   const [rpm, setRpm]   = useState("")
   const [rph, setRph]   = useState("")
@@ -221,9 +187,7 @@ function AddOverrideModal({ onClose, onAdd, isDark }: {
     if (!reason.trim())    { setError("Reason is required"); return }
     setError("")
     onAdd({
-      user_id: userId || `usr_${Math.random().toString(36).slice(2)}`,
       user_email: userEmail.trim(),
-      user_name:  userName.trim() || userEmail.split("@")[0],
       endpoint,
       requests_per_minute: rpm   ? Number(rpm)   : null,
       requests_per_hour:   rph   ? Number(rph)   : null,
@@ -255,19 +219,11 @@ function AddOverrideModal({ onClose, onAdd, isDark }: {
           <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: s.textMuted, display: "flex", padding: 4 }}><X size={15} /></button>
         </div>
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+          <div>
             <div>
               <label style={s.labelStyle}>User Email *</label>
               <input style={s.inputStyle} placeholder="user@example.com" value={userEmail} onChange={e => setUserEmail(e.target.value)} />
             </div>
-            <div>
-              <label style={s.labelStyle}>Display Name</label>
-              <input style={s.inputStyle} placeholder="Auto from email" value={userName} onChange={e => setUserName(e.target.value)} />
-            </div>
-          </div>
-          <div>
-            <label style={s.labelStyle}>User ID (optional)</label>
-            <input style={s.inputStyle} placeholder="usr_xxxxxxxx" value={userId} onChange={e => setUserId(e.target.value)} />
           </div>
           {/* Endpoint selector */}
           <div>
@@ -426,7 +382,7 @@ function OverrideCard({ o, onDelete, isDark }: {
 
 // ─── Global Rules Tab ─────────────────────────────────────────────────────────
 function GlobalRulesTab({ rules, onUpdate, isDark }: {
-  rules: GlobalRule[]; onUpdate: (u: GlobalRule) => void; isDark: boolean
+  rules: GlobalRule[]; onUpdate: (u: GlobalRule) => Promise<void> | void; isDark: boolean
 }) {
   const s = useStyles(isDark)
   const [editing, setEditing] = useState<GlobalRule | null>(null)
@@ -493,7 +449,7 @@ function GlobalRulesTab({ rules, onUpdate, isDark }: {
 
 // ─── User Overrides Tab ───────────────────────────────────────────────────────
 function UserOverridesTab({ overrides, onAdd, onDelete, isDark }: {
-  overrides: UserOverride[]; onAdd: (o: Omit<UserOverride, "id" | "created_at">) => void; onDelete: (id: string) => void; isDark: boolean
+  overrides: UserOverride[]; onAdd: (o: AddOverrideInput) => Promise<void> | void; onDelete: (id: string) => Promise<void> | void; isDark: boolean
 }) {
   const s = useStyles(isDark)
   const [showModal, setShowModal] = useState(false)
@@ -583,18 +539,70 @@ function UserOverridesTab({ overrides, onAdd, onDelete, isDark }: {
 }
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
-export function AdminRateLimitsClient() {
+export function AdminRateLimitsClient({
+  initialRules,
+  initialOverrides,
+}: {
+  initialRules: GlobalRule[]
+  initialOverrides: UserOverride[]
+}) {
   const { isDark } = useTheme()
   const s = useStyles(isDark)
 
   const [tab,       setTab]       = useState<"global" | "overrides">("global")
-  const [rules,     setRules]     = useState<GlobalRule[]>(INITIAL_GLOBAL_RULES)
-  const [overrides, setOverrides] = useState<UserOverride[]>(INITIAL_OVERRIDES)
+  const [rules,     setRules]     = useState<GlobalRule[]>(initialRules)
+  const [overrides, setOverrides] = useState<UserOverride[]>(initialOverrides)
+  const [error, setError] = useState<string | null>(null)
   const [saved,     setSaved]     = useState(false)
+  const [isPending, startTransition] = useTransition()
 
   function handleSave() {
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
+  }
+
+  async function handleRuleUpdate(updated: GlobalRule) {
+    const previous = rules
+    setError(null)
+    setRules((prev) => prev.map((rule) => (rule.id === updated.id ? updated : rule)))
+
+    try {
+      await updateGlobalRule(updated.id, {
+        requests_per_minute: updated.requests_per_minute,
+        requests_per_hour: updated.requests_per_hour,
+        requests_per_day: updated.requests_per_day,
+        max_daily_spend_usd: updated.max_daily_spend_usd,
+        is_active: updated.is_active,
+      })
+      handleSave()
+    } catch (e) {
+      setRules(previous)
+      setError(e instanceof Error ? e.message : "Failed to update global rule")
+    }
+  }
+
+  async function handleAddOverride(input: AddOverrideInput) {
+    setError(null)
+    try {
+      const created = await addRateLimitOverride(input)
+      setOverrides((prev) => [created, ...prev.filter((item) => !(item.user_id === created.user_id && item.endpoint === created.endpoint))])
+      handleSave()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add override")
+    }
+  }
+
+  async function handleDeleteOverride(id: string) {
+    const previous = overrides
+    setError(null)
+    setOverrides((prev) => prev.filter((item) => item.id !== id))
+    try {
+      await deleteRateLimitOverride(id)
+      handleSave()
+    } catch (e) {
+      setOverrides(previous)
+      setError(e instanceof Error ? e.message : "Failed to delete override")
+    }
   }
 
   const activeCount   = rules.filter(r => r.is_active).length
@@ -627,11 +635,19 @@ export function AdminRateLimitsClient() {
                 Control request rates and spend caps per endpoint. Set global defaults, then override for individual users.
               </p>
             </div>
-            <button onClick={handleSave} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: saved ? "#10b981" : isDark ? "rgba(16,185,129,0.12)" : "rgba(16,185,129,0.08)", border: `1px solid ${saved ? "#10b981" : "rgba(16,185,129,0.3)"}`, cursor: "pointer", color: saved ? "#fff" : "#10b981", fontSize: 13, fontWeight: 700, fontFamily: "inherit", transition: "all 0.2s", whiteSpace: "nowrap" }}>
+            <button
+              onClick={() => startTransition(() => handleSave())}
+              disabled={isPending}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: saved ? "#10b981" : isDark ? "rgba(16,185,129,0.12)" : "rgba(16,185,129,0.08)", border: `1px solid ${saved ? "#10b981" : "rgba(16,185,129,0.3)"}`, cursor: "pointer", color: saved ? "#fff" : "#10b981", fontSize: 13, fontWeight: 700, fontFamily: "inherit", transition: "all 0.2s", whiteSpace: "nowrap", opacity: isPending ? 0.7 : 1 }}>
               {saved ? <CheckCircle2 size={15} /> : <Save size={15} />}
-              {saved ? "Saved!" : "Save Changes"}
+              {saved ? "Saved!" : "Auto-Save"}
             </button>
           </div>
+          {error && (
+            <div style={{ marginTop: 12, fontSize: 12, color: "#ef4444", display: "flex", alignItems: "center", gap: 6 }}>
+              <AlertCircle size={13} /> {error}
+            </div>
+          )}
         </div>
       </div>
 
@@ -685,11 +701,11 @@ export function AdminRateLimitsClient() {
           <AnimatePresence mode="wait">
             <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
               {tab === "global"
-                ? <GlobalRulesTab rules={rules} onUpdate={u => setRules(prev => prev.map(r => r.id === u.id ? u : r))} isDark={isDark} />
+                ? <GlobalRulesTab rules={rules} onUpdate={handleRuleUpdate} isDark={isDark} />
                 : <UserOverridesTab
                     overrides={overrides}
-                    onAdd={o => setOverrides(prev => [...prev, { ...o, id: Math.random().toString(36).slice(2), created_at: new Date().toISOString() }])}
-                    onDelete={id => setOverrides(prev => prev.filter(o => o.id !== id))}
+                    onAdd={handleAddOverride}
+                    onDelete={handleDeleteOverride}
                     isDark={isDark}
                   />
               }
