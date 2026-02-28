@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         {
           error: "Server misconfiguration",
           code: "NOVITA_API_KEY_MISSING",
-          message: "No active Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
+          message: "No primary Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
         },
         { status: 500 },
       )

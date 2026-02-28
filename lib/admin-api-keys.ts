@@ -230,9 +230,7 @@ export async function getActiveProviderApiKey(provider: AdminApiKeyProvider): Pr
     .from("admin_api_keys")
     .select("id, api_key, status, is_primary")
     .eq("provider", provider)
-    .order("is_primary", { ascending: false })
-    .order("updated_at", { ascending: false })
-    .limit(1)
+    .eq("is_primary", true)
     .maybeSingle()
 
   if (error || !data?.api_key) {

@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL DEFAULT 'Default API token',
-  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  token_encrypted TEXT NOT NULL,
   token_prefix VARCHAR(16) NOT NULL,
   last_used_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS api_tokens (
 );
 
 ALTER TABLE api_tokens ADD COLUMN IF NOT EXISTS name VARCHAR(255) NOT NULL DEFAULT 'Default API token';
-ALTER TABLE api_tokens ADD COLUMN IF NOT EXISTS token_hash VARCHAR(255);
+ALTER TABLE api_tokens ADD COLUMN IF NOT EXISTS token_encrypted TEXT;
 ALTER TABLE api_tokens ADD COLUMN IF NOT EXISTS token_prefix VARCHAR(16);
 ALTER TABLE api_tokens ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE api_tokens ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
@@ -173,8 +173,11 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 
 CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_token_prefix ON api_tokens(token_prefix);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_active ON api_tokens(is_active);
+
+DROP INDEX IF EXISTS idx_api_tokens_token_hash;
+ALTER TABLE api_tokens DROP COLUMN IF EXISTS token_hash;
 
 CREATE INDEX IF NOT EXISTS idx_user_integrations_user_id ON user_integrations(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_integrations_type ON user_integrations(integration_type);

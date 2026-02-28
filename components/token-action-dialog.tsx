@@ -18,7 +18,7 @@ import { useState } from "react"
 interface Token {
   id: string
   name: string
-  token_prefix: string
+  token: string
   created_at: string
 }
 

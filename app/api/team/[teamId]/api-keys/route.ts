@@ -1,6 +1,30 @@
 import { createAdminClient } from "@/lib/supabase/server"
 import { requireAuth } from "@/lib/auth"
 import { NextRequest, NextResponse } from "next/server"
+import crypto from "crypto"
+
+function getUserTokenEncryptionSecret(): string {
+  const secret = process.env.USER_API_TOKENS_ENCRYPTION_KEY || process.env.ADMIN_API_KEYS_ENCRYPTION_KEY
+  if (!secret) {
+    throw new Error("USER_API_TOKENS_ENCRYPTION_KEY is not set")
+  }
+  return secret
+}
+
+function decryptUserApiToken(payload: string): string {
+  const [ivHex, authTagHex, encryptedHex] = payload.split(":")
+  if (!ivHex || !authTagHex || !encryptedHex) {
+    throw new Error("Invalid encrypted token payload")
+  }
+
+  const key = crypto.createHash("sha256").update(getUserTokenEncryptionSecret()).digest()
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(ivHex, "hex"))
+  decipher.setAuthTag(Buffer.from(authTagHex, "hex"))
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedHex, "hex")),
+    decipher.final(),
+  ]).toString("utf8")
+}
 
 /**
  * GET /api/team/[teamId]/api-keys
@@ -44,7 +68,7 @@ export async function GET(
     // For now, we'll return the user's API tokens with team context
     const { data: tokens, error: tokensError } = await supabase
       .from("api_tokens")
-      .select("id, name, token_prefix, created_at, expires_at, is_active, last_used_at")
+      .select("id, name, token_prefix, token_encrypted, created_at, expires_at, is_active, last_used_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
 
@@ -55,10 +79,30 @@ export async function GET(
       )
     }
 
+    const hydratedTokens = (tokens || []).map((token) => {
+      let decrypted = ""
+      try {
+        decrypted = decryptUserApiToken(token.token_encrypted)
+      } catch {
+        decrypted = ""
+      }
+
+      return {
+        id: token.id,
+        name: token.name,
+        token: decrypted,
+        token_prefix: token.token_prefix,
+        created_at: token.created_at,
+        expires_at: token.expires_at,
+        is_active: token.is_active,
+        last_used_at: token.last_used_at,
+      }
+    })
+
     return NextResponse.json({
       success: true,
       teamId,
-      tokens: tokens || [],
+      tokens: hydratedTokens,
       userRole: membership.role,
       canManage: ["owner", "admin"].includes(membership.role),
     })

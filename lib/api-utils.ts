@@ -7,8 +7,10 @@ export function generateUserId(email: string, id: string | number): string {
 }
 
 // Mask API token for display
-export function maskToken(tokenPrefix: string): string {
-  return `${tokenPrefix}${"•".repeat(40)}`
+export function maskToken(token: string): string {
+  if (!token) return ""
+  if (token.length <= 12) return "•".repeat(token.length)
+  return `${token.slice(0, 8)}${"•".repeat(Math.max(0, token.length - 12))}${token.slice(-4)}`
 }
 
 // Format date for display
