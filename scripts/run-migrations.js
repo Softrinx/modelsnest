@@ -176,7 +176,8 @@ async function runMigrations() {
       '007_enable_token_rls.sql',
       '008_migrate_api_token_id_to_uuid.sql',
       '009_create_model_catalog_tables.sql',
-      '010_create_admin_api_keys.sql'
+      '010_create_admin_api_keys.sql',
+      '011_create_rate_limit_tables.sql'
     ];
 
     for (const migrationFile of migrationFiles) {

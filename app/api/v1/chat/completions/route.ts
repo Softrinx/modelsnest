@@ -3,6 +3,7 @@ import { NovitaAI } from "@/lib/chat-api"
 import { verifyApiToken } from "@/app/actions/api-tokens"
 import { createAdminClient } from "@/lib/supabase/server"
 import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 const DEFAULT_PRICE_PER_1K_TOKENS_USD = 0.001
 const PROVIDER_MODEL_BY_SLUG: Record<string, string> = {
@@ -85,6 +86,26 @@ export async function POST(request: NextRequest) {
 
     const adminSupabase = await createAdminClient()
     const userId = tokenInfo.user_id
+
+    const rateLimit = await checkRateLimit(userId, "chat")
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: "Rate limit exceeded",
+          code: "RATE_LIMIT_EXCEEDED",
+          message: rateLimit.reason || "Too many requests",
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter ?? 60),
+            ...(typeof rateLimit.limit === "number" ? { "X-RateLimit-Limit": String(rateLimit.limit) } : {}),
+            ...(typeof rateLimit.remaining === "number" ? { "X-RateLimit-Remaining": String(rateLimit.remaining) } : {}),
+            ...(rateLimit.resetAt ? { "X-RateLimit-Reset": rateLimit.resetAt.toISOString() } : {}),
+          },
+        },
+      )
+    }
 
     const requestedModelSlug =
       typeof model === "string" && model.trim().length > 0
@@ -287,8 +308,10 @@ export async function POST(request: NextRequest) {
     const { error: usageLogError } = await adminSupabase.from("usage_logs").insert({
       user_id: userId,
       service_type: "chat",
+      endpoint: "chat",
       tokens_used: totalTokens || null,
       cost,
+      cost_usd: cost,
       model_used: completion.model,
       request_id: completion.id,
     })
