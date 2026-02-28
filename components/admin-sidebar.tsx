@@ -10,7 +10,8 @@ import { ModelsnestLogo, ModelsnestLogoCompact } from "@/components/Modelsnest-l
 import {
   LayoutDashboard, Users, Receipt, DollarSign, X, ChevronRight,
   Menu, Sun, Moon, User, Home, Settings, Shield, Activity,
-  Key
+  Key,
+  Gauge
 } from "lucide-react"
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -28,8 +29,9 @@ const NAV_MAIN = [
 ]
 
 const NAV_TOOLS = [
-  { icon: Activity, label: "Analytics",  sub: "System metrics",  href: "/admin/analytics", color: "#f59e0b" },
   { icon: Key,      label: "API Keys",   sub: "Provider keys",   href: "/admin/api-keys",  color: "#6366f1" },
+  { icon: Gauge,    label: "Rate Limits", sub: "Request controls", href: "/admin/rate-limits", color: "#10b981" }, 
+  { icon: Activity, label: "Analytics",  sub: "System metrics",  href: "/admin/analytics", color: "#f59e0b" },
   { icon: Settings, label: "Settings",   sub: "Configuration",   href: "/admin/settings",  color: "#a1a1aa" },
 ]
 
