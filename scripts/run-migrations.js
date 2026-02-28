@@ -175,7 +175,8 @@ async function runMigrations() {
       '006_create_app_tables_for_supabase.sql',
       '007_enable_token_rls.sql',
       '008_migrate_api_token_id_to_uuid.sql',
-      '009_create_model_catalog_tables.sql'
+      '009_create_model_catalog_tables.sql',
+      '010_create_admin_api_keys.sql'
     ];
 
     for (const migrationFile of migrationFiles) {
