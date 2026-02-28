@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "@/contexts/themeContext"
 import { useSidebar } from "@/components/dashboard-layout-controller"
@@ -8,16 +8,17 @@ import Link from "next/link"
 import {
   ArrowLeft, Copy, Check, Code2, Zap, FileText,
   Play, Download, ChevronRight, Terminal, BookOpen,
-  Bot, Mic, Video, Brain, Radio, DollarSign, Settings
+  Bot, Mic, Video, Brain, Radio, DollarSign, Settings,
+  Send, RotateCcw, ChevronDown, ChevronUp, Loader2,
+  Sliders, Eye, EyeOff, AlertCircle, CheckCircle2
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { getFirstApiTokenForPlayground } from "@/app/actions/api-tokens"
 import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ModelDocsPageProps { user: DashboardUser; modelSlug: string }
 
 const MODEL_DB: Record<string, any> = {
-
-  /* ─────────────────────────────── GPT-4 TURBO ─────────────────────────── */
   "gpt-4-turbo": {
     name: "GPT-4 Turbo", provider: "OpenAI", category: "conversational", color: "#6366f1",
     description: "Advanced conversational AI with deep context understanding, code generation, creative writing and vision capabilities. Best for complex multi-turn tasks that demand reasoning and creativity.",
@@ -33,88 +34,14 @@ const MODEL_DB: Record<string, any> = {
       { name: "stream",      type: "boolean", req: false, default: "false",  desc: "Stream partial responses via SSE" },
       { name: "n",           type: "integer", req: false, default: "1",      desc: "Number of completions to generate" },
     ],
-    response: `{
-  "id": "chatcmpl-abc123",
-  "object": "chat.completion",
-  "created": 1714000000,
-  "model": "gpt-4-turbo",
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "Hello! How can I help you today?"
-      },
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 12,
-    "completion_tokens": 9,
-    "total_tokens": 21
-  }
-}`,
+    response: `{\n  "id": "chatcmpl-abc123",\n  "object": "chat.completion",\n  "created": 1714000000,\n  "model": "gpt-4-turbo",\n  "choices": [\n    {\n      "index": 0,\n      "message": {\n        "role": "assistant",\n        "content": "Hello! How can I help you today?"\n      },\n      "finish_reason": "stop"\n    }\n  ],\n  "usage": {\n    "prompt_tokens": 12,\n    "completion_tokens": 9,\n    "total_tokens": 21\n  }\n}`,
     examples: {
-      Python: `import requests
-
-url = "https://api.Modelsnest.com/v1/chat/completions"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}
-
-data = {
-    "model": "gpt-4-turbo",
-    "messages": [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user",   "content": "Explain quantum computing simply."}
-    ],
-    "max_tokens": 500,
-    "temperature": 0.7
-}
-
-res = requests.post(url, headers=headers, json=data)
-print(res.json()["choices"][0]["message"]["content"])`,
-
-      JavaScript: `const res = await fetch(
-  "https://api.Modelsnest.com/v1/chat/completions",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4-turbo",
-      messages: [
-        { role: "system", content: "You are a helpful assistant." },
-        { role: "user",   content: "Explain quantum computing simply." },
-      ],
-      max_tokens: 500,
-      temperature: 0.7,
-    }),
-  }
-)
-const data = await res.json()
-console.log(data.choices[0].message.content)`,
-
-      cURL: `curl https://api.Modelsnest.com/v1/chat/completions \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "gpt-4-turbo",
-    "messages": [
-      {"role":"system","content":"You are a helpful assistant."},
-      {"role":"user","content":"Explain quantum computing simply."}
-    ],
-    "max_tokens": 500,
-    "temperature": 0.7
-  }'`,
+      Python: `import requests\n\nurl = "https://api.Modelsnest.com/v1/chat/completions"\nheaders = {\n    "Authorization": "Bearer YOUR_API_KEY",\n    "Content-Type": "application/json"\n}\n\ndata = {\n    "model": "gpt-4-turbo",\n    "messages": [\n        {"role": "system", "content": "You are a helpful assistant."},\n        {"role": "user",   "content": "Explain quantum computing simply."}\n    ],\n    "max_tokens": 500,\n    "temperature": 0.7\n}\n\nres = requests.post(url, headers=headers, json=data)\nprint(res.json()["choices"][0]["message"]["content"])`,
+      JavaScript: `const res = await fetch(\n  "https://api.Modelsnest.com/v1/chat/completions",\n  {\n    method: "POST",\n    headers: {\n      "Authorization": "Bearer YOUR_API_KEY",\n      "Content-Type": "application/json",\n    },\n    body: JSON.stringify({\n      model: "gpt-4-turbo",\n      messages: [\n        { role: "system", content: "You are a helpful assistant." },\n        { role: "user",   content: "Explain quantum computing simply." },\n      ],\n      max_tokens: 500,\n      temperature: 0.7,\n    }),\n  }\n)\nconst data = await res.json()\nconsole.log(data.choices[0].message.content)`,
+      cURL: `curl https://api.Modelsnest.com/v1/chat/completions \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "model": "gpt-4-turbo",\n    "messages": [\n      {"role":"system","content":"You are a helpful assistant."},\n      {"role":"user","content":"Explain quantum computing simply."}\n    ],\n    "max_tokens": 500,\n    "temperature": 0.7\n  }'`,
     },
     pricing: { input: "0.010", output: "0.030", unit: "1K tokens" },
   },
-
-  /* ─────────────────────────────── CLAUDE 3 OPUS ───────────────────────── */
   "claude-3-opus": {
     name: "Claude 3 Opus", provider: "Anthropic", category: "conversational", color: "#8b5cf6",
     description: "Anthropic's most capable model featuring exceptional reasoning, document analysis and nuanced instruction following. Ideal for research, legal analysis and complex writing tasks.",
@@ -129,993 +56,18 @@ console.log(data.choices[0].message.content)`,
       { name: "system",      type: "string",  req: false, default: "—",    desc: "System prompt to set assistant behavior" },
       { name: "stream",      type: "boolean", req: false, default: "false", desc: "Enable streaming responses" },
     ],
-    response: `{
-  "id": "claude-abc123",
-  "object": "chat.completion",
-  "created": 1714000000,
-  "model": "claude-3-opus",
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "Here is my analysis of your document..."
-      },
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 20,
-    "completion_tokens": 40,
-    "total_tokens": 60
-  }
-}`,
+    response: `{\n  "id": "claude-abc123",\n  "object": "chat.completion",\n  "created": 1714000000,\n  "model": "claude-3-opus",\n  "choices": [\n    {\n      "index": 0,\n      "message": {\n        "role": "assistant",\n        "content": "Here is my analysis of your document..."\n      },\n      "finish_reason": "stop"\n    }\n  ],\n  "usage": {\n    "prompt_tokens": 20,\n    "completion_tokens": 40,\n    "total_tokens": 60\n  }\n}`,
     examples: {
-      Python: `import requests
-
-url = "https://api.Modelsnest.com/v1/chat/completions"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}
-
-data = {
-    "model": "claude-3-opus",
-    "system": "You are an expert business analyst.",
-    "messages": [
-        {"role": "user", "content": "Analyze this business strategy and identify risks..."}
-    ],
-    "max_tokens": 800,
-    "temperature": 0.5
-}
-
-res = requests.post(url, headers=headers, json=data)
-print(res.json()["choices"][0]["message"]["content"])`,
-
-      JavaScript: `const res = await fetch(
-  "https://api.Modelsnest.com/v1/chat/completions",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-3-opus",
-      system: "You are an expert business analyst.",
-      messages: [
-        { role: "user", content: "Analyze this business strategy and identify risks..." }
-      ],
-      max_tokens: 800,
-    }),
-  }
-)
-const data = await res.json()
-console.log(data.choices[0].message.content)`,
-
-      cURL: `curl https://api.Modelsnest.com/v1/chat/completions \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "claude-3-opus",
-    "system": "You are an expert business analyst.",
-    "messages": [
-      {"role":"user","content":"Analyze this business strategy..."}
-    ],
-    "max_tokens": 800
-  }'`,
+      Python: `import requests\n\nurl = "https://api.Modelsnest.com/v1/chat/completions"\nheaders = {\n    "Authorization": "Bearer YOUR_API_KEY",\n    "Content-Type": "application/json"\n}\n\ndata = {\n    "model": "claude-3-opus",\n    "system": "You are an expert business analyst.",\n    "messages": [\n        {"role": "user", "content": "Analyze this business strategy and identify risks..."}\n    ],\n    "max_tokens": 800,\n    "temperature": 0.5\n}\n\nres = requests.post(url, headers=headers, json=data)\nprint(res.json()["choices"][0]["message"]["content"])`,
+      JavaScript: `const res = await fetch(\n  "https://api.Modelsnest.com/v1/chat/completions",\n  {\n    method: "POST",\n    headers: {\n      "Authorization": "Bearer YOUR_API_KEY",\n      "Content-Type": "application/json",\n    },\n    body: JSON.stringify({\n      model: "claude-3-opus",\n      system: "You are an expert business analyst.",\n      messages: [\n        { role: "user", content: "Analyze this business strategy and identify risks..." }\n      ],\n      max_tokens: 800,\n    }),\n  }\n)\nconst data = await res.json()\nconsole.log(data.choices[0].message.content)`,
+      cURL: `curl https://api.Modelsnest.com/v1/chat/completions \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "model": "claude-3-opus",\n    "system": "You are an expert business analyst.",\n    "messages": [\n      {"role":"user","content":"Analyze this business strategy..."}\n    ],\n    "max_tokens": 800\n  }'`,
     },
     pricing: { input: "0.015", output: "0.075", unit: "1K tokens" },
   },
-
-  /* ─────────────────────────────── GEMINI PRO ──────────────────────────── */
-  "gemini-pro": {
-    name: "Gemini Pro", provider: "Google", category: "conversational", color: "#06b6d4",
-    description: "Google's multimodal conversational AI with real-time knowledge integration, strong cross-task performance, and built-in safety filters. Excels at image + text inputs.",
-    features: ["Multimodal Input", "Real-time Responses", "Knowledge Integration", "Safe AI", "Code Generation", "Multilingual"],
-    steps: ["Generate your API key in the APIs section", "Include it as a Bearer token in the Authorization header", "Send contents array with parts — supports text and image"],
-    endpoint: { method: "POST", path: "/v1/chat/completions", status: "Stable" },
-    params: [
-      { name: "model",    type: "string", req: true,  default: "—",   desc: "Model identifier — use gemini-pro" },
-      { name: "contents", type: "array",  req: true,  default: "—",   desc: "Array of content objects with parts" },
-      { name: "generationConfig", type: "object", req: false, default: "—", desc: "maxOutputTokens, temperature, topP, topK" },
-      { name: "safetySettings",   type: "array",  req: false, default: "—", desc: "Per-category harm blocking thresholds" },
-    ],
-    response: `{
-  "candidates": [
-    {
-      "content": {
-        "parts": [
-          {
-            "text": "Hello! I'm Gemini Pro. How can I help you today?"
-          }
-        ],
-        "role": "model"
-      },
-      "finishReason": "STOP",
-      "index": 0
-    }
-  ],
-  "usageMetadata": {
-    "promptTokenCount": 5,
-    "candidatesTokenCount": 14,
-    "totalTokenCount": 19
-  }
-}`,
-    examples: {
-      Python: `import requests
-
-url = "https://api.Modelsnest.com/v1/chat/completions"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
 }
 
-# Text + image multimodal example
-data = {
-    "model": "gemini-pro",
-    "contents": [
-        {
-            "parts": [
-                {"text": "What's in this image? Describe in detail."},
-                {
-                    "inline_data": {
-                        "mime_type": "image/jpeg",
-                        "data": "BASE64_ENCODED_IMAGE_DATA"
-                    }
-                }
-            ]
-        }
-    ],
-    "generationConfig": {
-        "maxOutputTokens": 500,
-        "temperature": 0.4
-    }
-}
-
-res = requests.post(url, headers=headers, json=data)
-print(res.json()["candidates"][0]["content"]["parts"][0]["text"])`,
-
-      JavaScript: `const res = await fetch(
-  "https://api.Modelsnest.com/v1/chat/completions",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gemini-pro",
-      contents: [
-        {
-          parts: [
-            { text: "What's in this image? Describe in detail." },
-            {
-              inline_data: {
-                mime_type: "image/jpeg",
-                data: "BASE64_ENCODED_IMAGE_DATA",
-              },
-            },
-          ],
-        },
-      ],
-      generationConfig: { maxOutputTokens: 500, temperature: 0.4 },
-    }),
-  }
-)
-const data = await res.json()
-console.log(data.candidates[0].content.parts[0].text)`,
-
-      cURL: `curl https://api.Modelsnest.com/v1/chat/completions \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "gemini-pro",
-    "contents": [
-      {"parts": [{"text": "Explain the water cycle."}]}
-    ],
-    "generationConfig": {"maxOutputTokens": 300}
-  }'`,
-    },
-    pricing: { input: "0.0025", output: "0.010", unit: "1K tokens" },
-  },
-
-  /* ─────────────────────────────── WHISPER V3 ──────────────────────────── */
-  "whisper-v3": {
-    name: "Whisper V3", provider: "OpenAI", category: "voice", color: "#10b981",
-    description: "State-of-the-art automatic speech recognition supporting 99 languages with noise reduction, speaker diarization and word-level timestamps. Ideal for transcription pipelines and voice interfaces.",
-    features: ["99 Languages", "Noise Reduction", "Timestamps", "Real-time", "Word-level Alignment", "Diarization"],
-    steps: ["Generate your API key in the APIs section", "Send your audio file as multipart/form-data", "Receive a full transcript with optional timestamps and language detection"],
-    endpoint: { method: "POST", path: "/v1/audio/transcriptions", status: "Stable" },
-    params: [
-      { name: "file",     type: "file",   req: true,  default: "—",    desc: "Audio file — mp3, mp4, mpeg, mpga, m4a, wav, webm" },
-      { name: "model",    type: "string", req: true,  default: "—",    desc: "Model identifier — use whisper-v3" },
-      { name: "language", type: "string", req: false, default: "auto", desc: "ISO-639-1 language code for the input audio" },
-      { name: "prompt",   type: "string", req: false, default: "—",    desc: "Optional text to guide the model's style or vocabulary" },
-      { name: "response_format", type: "string", req: false, default: "json", desc: "json, text, srt, verbose_json, or vtt" },
-      { name: "timestamp_granularities", type: "array", req: false, default: "[]", desc: "word or segment — granularity of returned timestamps" },
-    ],
-    response: `{
-  "text": "Hello, welcome to Modelsnest. Let's explore the possibilities.",
-  "language": "en",
-  "duration": 4.8,
-  "segments": [
-    {
-      "id": 0,
-      "start": 0.0,
-      "end": 4.8,
-      "text": "Hello, welcome to Modelsnest.",
-      "words": [
-        { "word": "Hello,", "start": 0.0, "end": 0.4 },
-        { "word": "welcome", "start": 0.5, "end": 0.9 }
-      ]
-    }
-  ]
-}`,
-    examples: {
-      Python: `import requests
-
-url = "https://api.Modelsnest.com/v1/audio/transcriptions"
-headers = { "Authorization": "Bearer YOUR_API_KEY" }
-
-with open("interview.mp3", "rb") as f:
-    files = { "file": ("interview.mp3", f, "audio/mpeg") }
-    data  = {
-        "model": "whisper-v3",
-        "language": "en",
-        "response_format": "verbose_json",
-        "timestamp_granularities": ["word"]
-    }
-    res = requests.post(url, headers=headers, files=files, data=data)
-
-result = res.json()
-print("Transcript:", result["text"])
-print("Duration:", result["duration"], "seconds")
-for word in result["segments"][0]["words"]:
-    print(f"  {word['word']} ({word['start']:.2f}s)")`,
-
-      JavaScript: `const formData = new FormData()
-formData.append("file", audioBlob, "interview.mp3")
-formData.append("model", "whisper-v3")
-formData.append("language", "en")
-formData.append("response_format", "verbose_json")
-
-const res = await fetch("https://api.Modelsnest.com/v1/audio/transcriptions", {
-  method: "POST",
-  headers: { "Authorization": "Bearer YOUR_API_KEY" },
-  body: formData,
-})
-
-const data = await res.json()
-console.log("Transcript:", data.text)
-console.log("Duration:", data.duration, "seconds")
-data.segments.forEach(seg => console.log(seg.text, seg.start))`,
-
-      cURL: `curl https://api.Modelsnest.com/v1/audio/transcriptions \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -F "file=@interview.mp3" \\
-  -F "model=whisper-v3" \\
-  -F "language=en" \\
-  -F "response_format=verbose_json"`,
-    },
-    pricing: { input: "0.006", output: "0.000", unit: "minute" },
-  },
-
-  /* ────────────────────────────── ELEVENLABS PRO ───────────────────────── */
-  "elevenlabs-pro": {
-    name: "ElevenLabs Pro", provider: "ElevenLabs", category: "voice", color: "#10b981",
-    description: "Hyper-realistic text-to-speech with voice cloning, emotion synthesis, and support for 29 languages. Perfect for audiobooks, virtual assistants and content creation at scale.",
-    features: ["Voice Cloning", "Emotion Control", "29 Languages", "Custom Voices", "High Quality", "SSML Support"],
-    steps: ["Generate your API key in the APIs section", "Pick or create a voice_id from the Voices library", "POST text to /v1/text-to-speech and save the returned binary audio"],
-    endpoint: { method: "POST", path: "/v1/text-to-speech", status: "Stable" },
-    params: [
-      { name: "text",     type: "string", req: true,  default: "—",                     desc: "Text to synthesize — supports SSML tags" },
-      { name: "voice_id", type: "string", req: true,  default: "—",                     desc: "Voice identifier from your voice library" },
-      { name: "model_id", type: "string", req: false, default: "eleven_multilingual_v2", desc: "TTS model — eleven_monolingual_v1 or eleven_multilingual_v2" },
-      { name: "voice_settings", type: "object", req: false, default: "—",              desc: "stability (0–1) and similarity_boost (0–1)" },
-      { name: "output_format",  type: "string", req: false, default: "mp3_44100_128",  desc: "Audio format: mp3_44100_128, pcm_16000, ulaw_8000, etc." },
-    ],
-    response: `HTTP 200 OK
-Content-Type: audio/mpeg
-
-<binary MP3 audio data>
-
-# On error:
-{
-  "detail": {
-    "status": "voice_not_found",
-    "message": "Voice ID not found in your library."
-  }
-}`,
-    examples: {
-      Python: `import requests
-
-url = "https://api.Modelsnest.com/v1/text-to-speech"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}
-
-data = {
-    "text": "Welcome to Modelsnest. Your AI infrastructure, supercharged.",
-    "voice_id": "YOUR_VOICE_ID",
-    "model_id": "eleven_multilingual_v2",
-    "voice_settings": {
-        "stability": 0.5,
-        "similarity_boost": 0.8
-    },
-    "output_format": "mp3_44100_128"
-}
-
-res = requests.post(url, headers=headers, json=data)
-
-if res.status_code == 200:
-    with open("output.mp3", "wb") as f:
-        f.write(res.content)
-    print("Audio saved to output.mp3")
-else:
-    print("Error:", res.json())`,
-
-      JavaScript: `const res = await fetch(
-  "https://api.Modelsnest.com/v1/text-to-speech",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      text: "Welcome to Modelsnest. Your AI infrastructure, supercharged.",
-      voice_id: "YOUR_VOICE_ID",
-      model_id: "eleven_multilingual_v2",
-      voice_settings: { stability: 0.5, similarity_boost: 0.8 },
-    }),
-  }
-)
-
-if (res.ok) {
-  const arrayBuffer = await res.arrayBuffer()
-  const blob = new Blob([arrayBuffer], { type: "audio/mpeg" })
-  const url = URL.createObjectURL(blob)
-  const audio = new Audio(url)
-  audio.play()
-}`,
-
-      cURL: `curl https://api.Modelsnest.com/v1/text-to-speech \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "text": "Welcome to Modelsnest.",
-    "voice_id": "YOUR_VOICE_ID",
-    "model_id": "eleven_multilingual_v2"
-  }' \\
-  --output output.mp3`,
-    },
-    pricing: { input: "0.0005", output: "0.000", unit: "character" },
-  },
-
-  /* ────────────────────────────── RUNWAY GEN-3 ─────────────────────────── */
-  "runway-gen-3": {
-    name: "Runway Gen-3", provider: "Runway", category: "video", color: "#f59e0b",
-    description: "Professional video generation from text or image prompts with granular motion control, cinematic output up to 4K, and advanced style transfer. Built for studios and content pipelines.",
-    features: ["Text-to-Video", "Image-to-Video", "Motion Control", "4K Output", "Style Transfer", "Inpainting"],
-    steps: ["Generate your API key in the APIs section", "POST a generation request — returns a task ID", "Poll /v1/video/generations/{id} until status is completed"],
-    endpoint: { method: "POST", path: "/v1/video/generations", status: "Stable" },
-    params: [
-      { name: "prompt",       type: "string",  req: true,  default: "—",   desc: "Text description of the video to generate" },
-      { name: "model",        type: "string",  req: true,  default: "—",   desc: "Model identifier — use runway-gen-3" },
-      { name: "duration",     type: "integer", req: false, default: "10",  desc: "Duration in seconds — 4 to 16" },
-      { name: "resolution",   type: "string",  req: false, default: "720p", desc: "Output resolution: 480p, 720p, 1080p, 4k" },
-      { name: "image_url",    type: "string",  req: false, default: "—",   desc: "Optional reference image URL for image-to-video" },
-      { name: "motion_amount",type: "integer", req: false, default: "5",   desc: "Amount of motion 1–10 — higher = more movement" },
-    ],
-    response: `{
-  "id": "gen_abc123",
-  "status": "processing",
-  "created_at": 1714000000,
-  "estimated_seconds": 45,
-  "model": "runway-gen-3",
-  "prompt": "A cinematic sunset over ocean waves",
-  "resolution": "1080p",
-  "duration": 10
-}
-
-// After polling until complete:
-{
-  "id": "gen_abc123",
-  "status": "completed",
-  "video_url": "https://cdn.Modelsnest.com/videos/gen_abc123.mp4",
-  "duration": 10,
-  "resolution": "1080p"
-}`,
-    examples: {
-      Python: `import requests, time
-
-url = "https://api.Modelsnest.com/v1/video/generations"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}
-
-# Step 1 — Create generation task
-data = {
-    "model": "runway-gen-3",
-    "prompt": "Cinematic drone shot of golden-hour waves crashing on black sand beach",
-    "duration": 10,
-    "resolution": "1080p",
-    "motion_amount": 6
-}
-
-res = requests.post(url, headers=headers, json=data)
-task_id = res.json()["id"]
-print(f"Task created: {task_id}")
-
-# Step 2 — Poll until complete
-while True:
-    poll = requests.get(f"{url}/{task_id}", headers=headers)
-    status = poll.json()["status"]
-    print(f"Status: {status}")
-    if status == "completed":
-        print("Video URL:", poll.json()["video_url"])
-        break
-    elif status == "failed":
-        print("Generation failed:", poll.json())
-        break
-    time.sleep(5)`,
-
-      JavaScript: `// Step 1 — Create generation task
-const createRes = await fetch(
-  "https://api.Modelsnest.com/v1/video/generations",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "runway-gen-3",
-      prompt: "Cinematic drone shot of golden-hour waves crashing on black sand beach",
-      duration: 10,
-      resolution: "1080p",
-      motion_amount: 6,
-    }),
-  }
-)
-const { id } = await createRes.json()
-
-// Step 2 — Poll until complete
-const poll = async () => {
-  const res = await fetch(
-    \`https://api.Modelsnest.com/v1/video/generations/\${id}\`,
-    { headers: { "Authorization": "Bearer YOUR_API_KEY" } }
-  )
-  const data = await res.json()
-  if (data.status === "completed") return console.log("Video:", data.video_url)
-  if (data.status === "failed")    return console.error("Failed:", data)
-  setTimeout(poll, 5000)
-}
-poll()`,
-
-      cURL: `# Step 1 — Create task
-curl https://api.Modelsnest.com/v1/video/generations \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "runway-gen-3",
-    "prompt": "Cinematic golden-hour ocean waves",
-    "duration": 10,
-    "resolution": "1080p"
-  }'
-
-# Step 2 — Poll with the returned id
-curl https://api.Modelsnest.com/v1/video/generations/TASK_ID \\
-  -H "Authorization: Bearer YOUR_API_KEY"`,
-    },
-    pricing: { input: "0.050", output: "0.000", unit: "second" },
-  },
-
-  /* ─────────────────────────────── PIKA LABS ───────────────────────────── */
-  "pika-labs": {
-    name: "Pika Labs", provider: "Pika", category: "video", color: "#f59e0b",
-    description: "Creative video generation with strong artistic style control, smooth animation and scene generation. Ideal for creative agencies, social content and music videos.",
-    features: ["Artistic Styles", "Animation", "Scene Generation", "Prompt Control", "Style Transfer", "Frame Interpolation"],
-    steps: ["Generate your API key in the APIs section", "POST a generation request with prompt and optional style", "Poll the returned task ID for the video URL"],
-    endpoint: { method: "POST", path: "/v1/video/creative", status: "Stable" },
-    params: [
-      { name: "prompt",    type: "string",  req: true,  default: "—",         desc: "Creative description of the video scene" },
-      { name: "style",     type: "string",  req: false, default: "cinematic", desc: "Artistic style: cinematic, anime, watercolor, impressionist, 3d, sketch" },
-      { name: "duration",  type: "integer", req: false, default: "4",         desc: "Duration in seconds — 1 to 10" },
-      { name: "aspect",    type: "string",  req: false, default: "16:9",      desc: "Aspect ratio: 16:9, 9:16, 1:1, 4:3" },
-      { name: "fps",       type: "integer", req: false, default: "24",        desc: "Frames per second — 12, 24, or 30" },
-      { name: "seed",      type: "integer", req: false, default: "—",         desc: "Seed for reproducible generation" },
-    ],
-    response: `{
-  "id": "pika_abc123",
-  "status": "processing",
-  "created_at": 1714000000,
-  "style": "watercolor",
-  "prompt": "A magical forest with glowing fireflies"
-}
-
-// When complete:
-{
-  "id": "pika_abc123",
-  "status": "completed",
-  "video_url": "https://cdn.Modelsnest.com/videos/pika_abc123.mp4",
-  "style": "watercolor",
-  "duration": 4,
-  "fps": 24
-}`,
-    examples: {
-      Python: `import requests, time
-
-url = "https://api.Modelsnest.com/v1/video/creative"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}
-
-data = {
-    "prompt": "A magical forest with glowing fireflies drifting through ancient trees",
-    "style": "watercolor",
-    "duration": 6,
-    "aspect": "16:9",
-    "fps": 24
-}
-
-res = requests.post(url, headers=headers, json=data)
-task = res.json()
-print(f"Task: {task['id']}, Status: {task['status']}")
-
-# Poll for result
-while True:
-    poll = requests.get(f"{url}/{task['id']}", headers=headers)
-    data  = poll.json()
-    if data["status"] == "completed":
-        print("Video URL:", data["video_url"])
-        break
-    elif data["status"] == "failed":
-        print("Failed")
-        break
-    time.sleep(5)`,
-
-      JavaScript: `const res = await fetch(
-  "https://api.Modelsnest.com/v1/video/creative",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      prompt: "A magical forest with glowing fireflies",
-      style: "watercolor",
-      duration: 6,
-      aspect: "16:9",
-    }),
-  }
-)
-const { id } = await res.json()
-console.log("Task ID:", id)
-
-// Poll
-const check = async () => {
-  const r = await fetch(
-    \`https://api.Modelsnest.com/v1/video/creative/\${id}\`,
-    { headers: { "Authorization": "Bearer YOUR_API_KEY" } }
-  )
-  const d = await r.json()
-  if (d.status === "completed") return console.log("Video:", d.video_url)
-  setTimeout(check, 5000)
-}
-check()`,
-
-      cURL: `curl https://api.Modelsnest.com/v1/video/creative \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "prompt": "A magical forest with glowing fireflies",
-    "style": "watercolor",
-    "duration": 6
-  }'`,
-    },
-    pricing: { input: "0.080", output: "0.000", unit: "second" },
-  },
-
-  /* ────────────────────────────── LLAMA 3 70B ──────────────────────────── */
-  "llama-3-70b": {
-    name: "Llama 3 70B", provider: "Meta", category: "llm", color: "#06b6d4",
-    description: "Meta's open-source flagship large language model with strong reasoning, coding, instruction following and tool use. Ideal for custom deployments and fine-tuning pipelines.",
-    features: ["Open Source", "Custom Training", "Efficient Inference", "Community Support", "High Performance", "Tool Use"],
-    steps: ["Generate your API key in the APIs section", "Include it as a Bearer token in the Authorization header", "POST to /v1/completions with your prompt"],
-    endpoint: { method: "POST", path: "/v1/completions", status: "Stable" },
-    params: [
-      { name: "model",       type: "string",  req: true,  default: "—",     desc: "Model identifier — use llama-3-70b" },
-      { name: "prompt",      type: "string",  req: true,  default: "—",     desc: "Input text prompt to complete" },
-      { name: "max_tokens",  type: "integer", req: false, default: "256",   desc: "Maximum tokens to generate" },
-      { name: "temperature", type: "float",   req: false, default: "0.8",   desc: "Sampling temperature 0.0–2.0" },
-      { name: "top_p",       type: "float",   req: false, default: "0.95",  desc: "Nucleus sampling probability mass" },
-      { name: "stop",        type: "array",   req: false, default: "[]",    desc: "List of stop sequences to end generation" },
-      { name: "stream",      type: "boolean", req: false, default: "false", desc: "Stream tokens as they are generated" },
-    ],
-    response: `{
-  "id": "llama_abc123",
-  "object": "text_completion",
-  "created": 1714000000,
-  "model": "llama-3-70b",
-  "choices": [
-    {
-      "text": "Once upon a time in a digital kingdom, a robot named Aria...",
-      "index": 0,
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 8,
-    "completion_tokens": 20,
-    "total_tokens": 28
-  }
-}`,
-    examples: {
-      Python: `import requests
-
-url = "https://api.Modelsnest.com/v1/completions"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}
-
-data = {
-    "model": "llama-3-70b",
-    "prompt": "Write a Python function that implements binary search:\n\ndef binary_search(arr, target):",
-    "max_tokens": 300,
-    "temperature": 0.2,
-    "stop": ["\\n\\n", "# End"]
-}
-
-res = requests.post(url, headers=headers, json=data)
-print(res.json()["choices"][0]["text"])`,
-
-      JavaScript: `const res = await fetch(
-  "https://api.Modelsnest.com/v1/completions",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "llama-3-70b",
-      prompt: "Write a short story about a robot discovering music:",
-      max_tokens: 300,
-      temperature: 0.8,
-    }),
-  }
-)
-const data = await res.json()
-console.log(data.choices[0].text)`,
-
-      cURL: `curl https://api.Modelsnest.com/v1/completions \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "llama-3-70b",
-    "prompt": "Write a short story about a robot discovering music:",
-    "max_tokens": 300,
-    "temperature": 0.8
-  }'`,
-    },
-    pricing: { input: "0.0008", output: "0.0008", unit: "1K tokens" },
-  },
-
-  /* ────────────────────────────── MISTRAL LARGE ────────────────────────── */
-  "mistral-large": {
-    name: "Mistral Large", provider: "Mistral", category: "llm", color: "#06b6d4",
-    description: "High-performance European LLM with exceptional multilingual capabilities, precise instruction following, strong code generation and efficient inference. Best for multilingual apps.",
-    features: ["Multilingual", "Code Generation", "Reasoning", "Efficient", "High Quality", "Function Calling"],
-    steps: ["Generate your API key in the APIs section", "Include it as a Bearer token in the Authorization header", "POST to /v1/chat/completions with messages array"],
-    endpoint: { method: "POST", path: "/v1/chat/completions", status: "Stable" },
-    params: [
-      { name: "model",        type: "string",  req: true,  default: "—",     desc: "Model identifier — use mistral-large" },
-      { name: "messages",     type: "array",   req: true,  default: "—",     desc: "Conversation history with role and content" },
-      { name: "max_tokens",   type: "integer", req: false, default: "1024",  desc: "Maximum tokens to generate" },
-      { name: "temperature",  type: "float",   req: false, default: "0.7",   desc: "Sampling temperature 0.0–1.0" },
-      { name: "top_p",        type: "float",   req: false, default: "1.0",   desc: "Nucleus sampling probability" },
-      { name: "stream",       type: "boolean", req: false, default: "false", desc: "Enable streaming responses" },
-      { name: "safe_prompt",  type: "boolean", req: false, default: "false", desc: "Prepend safety system prompt" },
-    ],
-    response: `{
-  "id": "mistral_abc123",
-  "object": "chat.completion",
-  "created": 1714000000,
-  "model": "mistral-large-latest",
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "Bonjour! Je suis Mistral Large. Comment puis-je vous aider?"
-      },
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 10,
-    "completion_tokens": 18,
-    "total_tokens": 28
-  }
-}`,
-    examples: {
-      Python: `import requests
-
-url = "https://api.Modelsnest.com/v1/chat/completions"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}
-
-# Multilingual example
-data = {
-    "model": "mistral-large",
-    "messages": [
-        {"role": "system",  "content": "You are a multilingual assistant."},
-        {"role": "user",    "content": "Explique-moi la relativité restreinte en termes simples."}
-    ],
-    "max_tokens": 500,
-    "temperature": 0.6
-}
-
-res = requests.post(url, headers=headers, json=data)
-print(res.json()["choices"][0]["message"]["content"])`,
-
-      JavaScript: `const res = await fetch(
-  "https://api.Modelsnest.com/v1/chat/completions",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "mistral-large",
-      messages: [
-        { role: "system", content: "You are a multilingual assistant." },
-        { role: "user",   content: "Erkläre mir die Relativitätstheorie einfach." },
-      ],
-      max_tokens: 500,
-      temperature: 0.6,
-    }),
-  }
-)
-const data = await res.json()
-console.log(data.choices[0].message.content)`,
-
-      cURL: `curl https://api.Modelsnest.com/v1/chat/completions \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "mistral-large",
-    "messages": [
-      {"role":"user","content":"Bonjour! Comment allez-vous?"}
-    ],
-    "max_tokens": 300
-  }'`,
-    },
-    pricing: { input: "0.0012", output: "0.0036", unit: "1K tokens" },
-  },
-
-  /* ────────────────────────────── STREAMAI PRO ─────────────────────────── */
-  "streamai-pro": {
-    name: "StreamAI Pro", provider: "Modelsnest", category: "livestreaming", color: "#ec4899",
-    description: "Real-time AI processing purpose-built for live streaming — content moderation, audience engagement analytics, live caption generation and automated highlight detection.",
-    features: ["Real-time Processing", "Content Moderation", "Audience Analytics", "Live Captions", "Highlight Detection", "Chat AI"],
-    steps: ["Generate your API key in the APIs section", "Attach your stream_id to the processing request", "Receive real-time moderation scores and engagement metrics via webhooks"],
-    endpoint: { method: "POST", path: "/v1/stream/process", status: "Stable" },
-    params: [
-      { name: "stream_id",    type: "string", req: true,  default: "—",       desc: "Live stream session identifier" },
-      { name: "content_type", type: "string", req: true,  default: "—",       desc: "Type of content: video, audio, chat" },
-      { name: "features",     type: "array",  req: false, default: "all",     desc: "Features to enable: moderation, captions, highlights, analytics" },
-      { name: "webhook_url",  type: "string", req: false, default: "—",       desc: "URL to receive real-time event callbacks" },
-      { name: "language",     type: "string", req: false, default: "auto",    desc: "Stream language for captions — ISO-639-1 code" },
-    ],
-    response: `{
-  "stream_id": "stream_abc123",
-  "status": "processing",
-  "session_id": "sess_xyz789",
-  "features_active": ["moderation", "captions", "analytics"],
-  "moderation": {
-    "score": 0.04,
-    "status": "safe",
-    "flagged_categories": []
-  },
-  "captions": {
-    "current_text": "Welcome to tonight's live stream!",
-    "language": "en"
-  },
-  "analytics": {
-    "viewers": 2847,
-    "peak_viewers": 3100,
-    "chat_rate_per_minute": 142,
-    "engagement_score": 0.87
-  }
-}`,
-    examples: {
-      Python: `import requests
-
-url = "https://api.Modelsnest.com/v1/stream/process"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}
-
-data = {
-    "stream_id": "stream_abc123",
-    "content_type": "video",
-    "features": ["moderation", "captions", "analytics"],
-    "webhook_url": "https://yourapp.com/webhook/stream-events",
-    "language": "en"
-}
-
-res = requests.post(url, headers=headers, json=data)
-result = res.json()
-
-print(f"Session: {result['session_id']}")
-print(f"Viewers: {result['analytics']['viewers']}")
-print(f"Moderation: {result['moderation']['status']}")
-print(f"Current caption: {result['captions']['current_text']}")`,
-
-      JavaScript: `const res = await fetch(
-  "https://api.Modelsnest.com/v1/stream/process",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      stream_id: "stream_abc123",
-      content_type: "video",
-      features: ["moderation", "captions", "analytics"],
-      webhook_url: "https://yourapp.com/webhook/stream-events",
-      language: "en",
-    }),
-  }
-)
-const data = await res.json()
-console.log("Session:", data.session_id)
-console.log("Viewers:", data.analytics.viewers)
-console.log("Moderation:", data.moderation.status)`,
-
-      cURL: `curl https://api.Modelsnest.com/v1/stream/process \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "stream_id": "stream_abc123",
-    "content_type": "video",
-    "features": ["moderation","captions","analytics"],
-    "language": "en"
-  }'`,
-    },
-    pricing: { input: "0.020", output: "0.000", unit: "minute" },
-  },
-
-  /* ─────────────────────────────── LIVECHAT AI ─────────────────────────── */
-  "livechat-ai": {
-    name: "LiveChat AI", provider: "Modelsnest", category: "livestreaming", color: "#ec4899",
-    description: "AI-powered live chat moderation with spam detection, toxicity scoring, sentiment analysis and smart auto-responses. Keeps your community safe at scale in real time.",
-    features: ["Chat Moderation", "Spam Detection", "Toxicity Scoring", "Sentiment Analysis", "Auto-Responses", "Real-time"],
-    steps: ["Generate your API key in the APIs section", "Send each chat message to /v1/chat/moderate", "Act on the returned is_approved flag and moderation_score"],
-    endpoint: { method: "POST", path: "/v1/chat/moderate", status: "Stable" },
-    params: [
-      { name: "message",     type: "string",  req: true,  default: "—",    desc: "The chat message content to moderate" },
-      { name: "user_id",     type: "string",  req: true,  default: "—",    desc: "Unique identifier of the message author" },
-      { name: "stream_id",   type: "string",  req: false, default: "—",    desc: "Stream session context for user history tracking" },
-      { name: "auto_reply",  type: "boolean", req: false, default: "false", desc: "Generate a smart auto-reply for approved messages" },
-      { name: "thresholds",  type: "object",  req: false, default: "—",    desc: "Custom toxicity and spam thresholds (0.0–1.0)" },
-    ],
-    response: `{
-  "message_id": "msg_abc123",
-  "user_id": "user_xyz",
-  "is_approved": true,
-  "moderation_score": 0.03,
-  "toxicity_score": 0.02,
-  "spam_score": 0.01,
-  "sentiment": "positive",
-  "action": "allow",
-  "categories": [],
-  "auto_reply": null,
-  "processing_ms": 18
-}
-
-// When message is flagged:
-{
-  "message_id": "msg_def456",
-  "is_approved": false,
-  "moderation_score": 0.91,
-  "action": "remove",
-  "categories": ["toxicity", "harassment"],
-  "auto_reply": null
-}`,
-    examples: {
-      Python: `import requests
-
-url = "https://api.Modelsnest.com/v1/chat/moderate"
-headers = {
-    "Authorization": "Bearer YOUR_API_KEY",
-    "Content-Type": "application/json"
-}
-
-def moderate_message(message: str, user_id: str, stream_id: str):
-    data = {
-        "message": message,
-        "user_id": user_id,
-        "stream_id": stream_id,
-        "auto_reply": True,
-        "thresholds": {
-            "toxicity": 0.7,
-            "spam": 0.8
-        }
-    }
-    res = requests.post(url, headers=headers, json=data)
-    result = res.json()
-
-    if result["is_approved"]:
-        print(f"✓ Approved — sentiment: {result['sentiment']}")
-        if result.get("auto_reply"):
-            print(f"  Auto-reply: {result['auto_reply']}")
-    else:
-        print(f"✗ Removed — categories: {result['categories']}")
-    return result
-
-moderate_message("Hello everyone! Great stream today!", "user_123", "stream_abc")`,
-
-      JavaScript: `async function moderateMessage(message, userId, streamId) {
-  const res = await fetch(
-    "https://api.Modelsnest.com/v1/chat/moderate",
-    {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer YOUR_API_KEY",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        message,
-        user_id: userId,
-        stream_id: streamId,
-        auto_reply: true,
-        thresholds: { toxicity: 0.7, spam: 0.8 },
-      }),
-    }
-  )
-  const data = await res.json()
-
-  if (data.is_approved) {
-    console.log("✓ Approved — sentiment:", data.sentiment)
-    if (data.auto_reply) console.log("Auto-reply:", data.auto_reply)
-  } else {
-    console.log("✗ Removed — categories:", data.categories)
-  }
-  return data
-}
-
-moderateMessage("Hello everyone! Great stream!", "user_123", "stream_abc")`,
-
-      cURL: `curl https://api.Modelsnest.com/v1/chat/moderate \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "message": "Hello everyone! Great stream today!",
-    "user_id": "user_123",
-    "stream_id": "stream_abc",
-    "auto_reply": true
-  }'`,
-    },
-    pricing: { input: "0.001", output: "0.000", unit: "message" },
-  },
-}
-
-/* ─── fallback for unknown slugs ──────────────────────────────────────────── */
 const buildFallback = (slug: string) => ({
+  slug,
   name: slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
   provider: "Modelsnest", category: "llm", color: "#6366f1",
   description: "Full documentation for this model is coming soon. It is available via the Modelsnest API and follows the standard completions interface.",
@@ -1138,11 +90,76 @@ const buildFallback = (slug: string) => ({
 
 const LANGS = ["Python", "JavaScript", "cURL"]
 
-/* ─── Code block component ────────────────────────────────────────────────── */
-function CodeBlock({ code, lang, isDark, border }: { code: string; lang: string; isDark: boolean; border: string }) {
+/* ─── Playground mock responses by category ─────────────────────────────── */
+const MOCK_RESPONSES: Record<string, (input: string, params: any) => any> = {
+  "text-generation": (input, params) => ({
+    id: `chatcmpl-${Math.random().toString(36).slice(2, 10)}`,
+    object: "chat.completion",
+    created: Math.floor(Date.now() / 1000),
+    model: params.model,
+    choices: [{
+      index: 0,
+      message: {
+        role: "assistant",
+        content: `This is a simulated response to: "${input.slice(0, 60)}${input.length > 60 ? '...' : ''}"\n\nIn a real call, the model would process your text prompt and return a contextual answer. Output behavior depends on temperature (${params.temperature ?? 1.0}) and max_tokens (${params.max_tokens ?? 1024}).`,
+      },
+      finish_reason: "stop",
+    }],
+    usage: {
+      prompt_tokens: Math.floor(input.split(" ").length * 1.3),
+      completion_tokens: Math.floor(Math.random() * 80) + 40,
+      total_tokens: Math.floor(input.split(" ").length * 1.3) + Math.floor(Math.random() * 80) + 40,
+    },
+  }),
+  "image-generation": (input, params) => ({
+    id: `img_${Math.random().toString(36).slice(2, 10)}`,
+    object: "image.generation",
+    created: Math.floor(Date.now() / 1000),
+    model: params.model,
+    prompt: input,
+    image_url: `https://images.modelsnest.dev/generated/${Math.random().toString(36).slice(2, 10)}.png`,
+    size: params.image_size || "1024x1024",
+    quality: "standard",
+  }),
+  "video-generation": (input, params) => ({
+    id: `gen_${Math.random().toString(36).slice(2, 10)}`,
+    status: "processing",
+    created_at: Math.floor(Date.now() / 1000),
+    estimated_seconds: Math.floor(Math.random() * 30) + 20,
+    prompt: input,
+    resolution: "1080p",
+    duration: params.duration_seconds || 8,
+    _note: "Poll the returned id to check completion status. Video URL appears when status = 'completed'.",
+  }),
+  "voice-synthesis": (input, params) => ({
+    id: `tts_${Math.random().toString(36).slice(2, 10)}`,
+    status: "completed",
+    model: params.model,
+    voice: params.voice || "alloy",
+    characters: input.length,
+    audio_url: `https://audio.modelsnest.dev/generated/${Math.random().toString(36).slice(2, 10)}.mp3`,
+  }),
+  transcription: (input, params) => ({
+    id: `tr_${Math.random().toString(36).slice(2, 10)}`,
+    status: "completed",
+    model: params.model,
+    source_audio: input,
+    text: `Simulated transcript for audio source: ${input.slice(0, 60)}${input.length > 60 ? "..." : ""}`,
+    language: "en",
+    duration: Number(params.duration_seconds || 30),
+  }),
+  conversational: (input, params) => MOCK_RESPONSES["text-generation"](input, params),
+  llm: (input, params) => MOCK_RESPONSES["text-generation"](input, params),
+  voice: (input, params) => MOCK_RESPONSES.transcription(input, params),
+  video: (input, params) => MOCK_RESPONSES["video-generation"](input, params),
+}
+
+/* ─── Code block ─────────────────────────────────────────────────────────── */
+function CodeBlock({ code, lang, isDark, border }: { code?: string; lang: string; isDark: boolean; border: string }) {
   const [copied, setCopied] = useState(false)
-  const copy = () => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1600) }
-  const lines  = code.split("\n")
+  const safeCode = typeof code === "string" ? code : ""
+  const copy = () => { navigator.clipboard.writeText(safeCode); setCopied(true); setTimeout(() => setCopied(false), 1600) }
+  const lines  = safeCode.split("\n")
   const codeBg = isDark ? "#080809" : "#fafaf9"
   const gutterC= isDark ? "#333340" : "#d6d3d1"
   const lineC  = isDark ? "#c9c9d4" : "#1c1917"
@@ -1151,7 +168,6 @@ function CodeBlock({ code, lang, isDark, border }: { code: string; lang: string;
 
   return (
     <div style={{ border: `1px solid ${border}`, overflow: "hidden" }}>
-      {/* Tab bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: tabBg, borderBottom: `1px solid ${border}`, height: 36 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px", height: "100%", borderTop: "2px solid var(--color-primary)", borderRight: `1px solid ${border}` }}>
           <FileText size={11} style={{ color: "var(--color-primary)" }} />
@@ -1162,7 +178,6 @@ function CodeBlock({ code, lang, isDark, border }: { code: string; lang: string;
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
-      {/* Code */}
       <div style={{ display: "flex", background: codeBg, overflowX: "auto" }}>
         <div style={{ display: "flex", flexDirection: "column", padding: "14px 10px", borderRight: `1px solid ${isDark ? "#18181c" : "#e7e5e4"}`, userSelect: "none", flexShrink: 0 }}>
           {lines.map((_, i) => (
@@ -1178,7 +193,6 @@ function CodeBlock({ code, lang, isDark, border }: { code: string; lang: string;
           })}
         </pre>
       </div>
-      {/* Status bar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 14px", background: tabBg, borderTop: `1px solid ${border}` }}>
         <span style={{ fontSize: 10, fontFamily: "monospace", color: gutterC }}>UTF-8  ·  {lines.length} lines</span>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -1186,6 +200,641 @@ function CodeBlock({ code, lang, isDark, border }: { code: string; lang: string;
           <span style={{ fontSize: 10, fontFamily: "monospace", color: gutterC }}>Ready</span>
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ─── Playground Tab ─────────────────────────────────────────────────────── */
+function PlaygroundTab({ model, isDark, border, surface, text, muted, subtext, accent }: {
+  model: any; isDark: boolean; border: string; surface: string;
+  text: string; muted: string; subtext: string; accent: string;
+}) {
+  const rawCategory = String(model.category || "").toLowerCase()
+  const normalizedCategory = rawCategory === "conversational" || rawCategory === "llm"
+    ? "text-generation"
+    : rawCategory
+
+  const isTextGeneration = normalizedCategory === "text-generation"
+  const isImageGeneration = normalizedCategory === "image-generation"
+  const isVideoGeneration = normalizedCategory === "video-generation"
+  const isVoiceSynthesis = normalizedCategory === "voice-synthesis"
+  const isTranscription = normalizedCategory === "transcription"
+
+  // Request state
+  const [textInput, setTextInput]     = useState("")
+  const [imagePrompt, setImagePrompt] = useState("")
+  const [imageUrl, setImageUrl]       = useState("")
+  const [audioUrl, setAudioUrl]       = useState("")
+  const [systemPrompt, setSystemPrompt] = useState("You are a helpful assistant.")
+  const [durationSeconds, setDurationSeconds] = useState(8)
+  const [voiceName, setVoiceName]     = useState("alloy")
+  const [imageSize, setImageSize]     = useState("1024x1024")
+  const [temperature, setTemperature] = useState(0.7)
+  const [maxTokens, setMaxTokens]     = useState(512)
+  const [showParams, setShowParams]   = useState(true)
+  const [showSystem, setShowSystem]   = useState(false)
+
+  // Response state
+  const [response, setResponse]       = useState<any>(null)
+  const [isLoading, setIsLoading]     = useState(false)
+  const [latency, setLatency]         = useState<number | null>(null)
+  const [statusCode, setStatusCode]   = useState<number | null>(null)
+  const [statusText, setStatusText]   = useState<string>("")
+  const [responseType, setResponseType] = useState<string>("application/json")
+  const [hasRun, setHasRun]           = useState(false)
+  const [responseTab, setResponseTab] = useState<"pretty" | "raw">("pretty")
+  const [copiedResp, setCopiedResp]   = useState(false)
+
+  const codeBg  = isDark ? "#080809" : "#fafaf9"
+  const gutterC = isDark ? "#333340" : "#d6d3d1"
+  const inputBg = isDark ? "#0a0a0d" : "#fafaf9"
+  const inputBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)"
+  const tabBg   = isDark ? "#0d0d10" : "#f0f0ee"
+
+  const canSend = isTextGeneration
+    ? Boolean(textInput.trim())
+    : isImageGeneration
+      ? Boolean(imagePrompt.trim() || imageUrl.trim())
+      : isVideoGeneration
+        ? Boolean(textInput.trim())
+        : isVoiceSynthesis
+          ? Boolean(textInput.trim())
+          : isTranscription
+            ? Boolean(audioUrl.trim())
+            : Boolean(textInput.trim())
+
+  const handleRun = async () => {
+    if (!canSend) return
+    setIsLoading(true)
+    setHasRun(true)
+    const t0 = performance.now()
+    try {
+      const tokenResult = await getFirstApiTokenForPlayground()
+      if (!tokenResult.success || typeof tokenResult.token !== "string") {
+        setStatusCode(400)
+        setStatusText("Missing API Key")
+        setResponseType("application/json")
+        setResponse({
+          success: false,
+          code: tokenResult.code || "NO_API_TOKENS",
+          message: tokenResult.error || "No API token found. Generate one in Dashboard > API Tokens.",
+          action: "Please generate an API key first.",
+        })
+        return
+      }
+
+      const apiToken = tokenResult.token
+      const endpointPath = model?.endpoint?.path?.startsWith("/api")
+        ? model.endpoint.path
+        : `/api${model?.endpoint?.path || "/v1/chat/completions"}`
+      const modelSlug = model?.slug || model?.name
+
+      let requestInit: RequestInit
+      if (isTranscription) {
+        const formData = new FormData()
+        formData.append("model", modelSlug)
+        formData.append("duration_seconds", String(durationSeconds))
+        if (audioUrl.trim()) {
+          formData.append("audio_url", audioUrl.trim())
+        }
+        requestInit = {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+          },
+          body: formData,
+        }
+      } else {
+        const body = isTextGeneration
+          ? {
+              model: modelSlug,
+              messages: [
+                ...(systemPrompt.trim() ? [{ role: "system", content: systemPrompt.trim() }] : []),
+                { role: "user", content: textInput },
+              ],
+              temperature,
+              max_tokens: maxTokens,
+            }
+          : isImageGeneration
+            ? {
+                model: modelSlug,
+                prompt: imagePrompt || "Generate image",
+                reference_image: imageUrl || undefined,
+                num_images: 1,
+              }
+            : isVideoGeneration
+              ? {
+                  model: modelSlug,
+                  duration_seconds: durationSeconds,
+                  prompt: textInput,
+                }
+              : isVoiceSynthesis
+                ? {
+                    model: modelSlug,
+                    text: textInput,
+                    voice: voiceName,
+                  }
+                : {
+                    model: modelSlug,
+                    prompt: textInput,
+                  }
+
+        requestInit = {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiToken}`,
+          },
+          body: JSON.stringify(body),
+        }
+      }
+
+      const res = await fetch(endpointPath, requestInit)
+      const contentType = res.headers.get("content-type") || "application/json"
+      const payload = contentType.includes("application/json")
+        ? await res.json().catch(() => ({ error: "Invalid JSON response" }))
+        : await res.text().catch(() => "")
+
+      setStatusCode(res.status)
+      setStatusText(res.statusText || (res.ok ? "OK" : "Request Failed"))
+      setResponseType(contentType)
+      setResponse(payload)
+      const t1 = performance.now()
+      setLatency(Math.round(t1 - t0))
+      setResponseTab("pretty")
+    } catch (error) {
+      const t1 = performance.now()
+      setLatency(Math.round(t1 - t0))
+      setStatusCode(500)
+      setStatusText("Request Error")
+      setResponseType("application/json")
+      setResponse({
+        success: false,
+        message: "Playground request failed",
+        error: error instanceof Error ? error.message : String(error),
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleReset = () => {
+    setTextInput("")
+    setImagePrompt("")
+    setImageUrl("")
+    setAudioUrl("")
+    setResponse(null)
+    setStatusCode(null)
+    setStatusText("")
+    setResponseType("application/json")
+    setHasRun(false)
+    setLatency(null)
+  }
+
+  const copyResp = () => {
+    navigator.clipboard.writeText(JSON.stringify(response, null, 2))
+    setCopiedResp(true); setTimeout(() => setCopiedResp(false), 1600)
+  }
+
+  const prettyLines = response ? JSON.stringify(response, null, 2).split("\n") : []
+  const lineC  = isDark ? "#c9c9d4" : "#1c1917"
+  const cmtC   = isDark ? "#444455" : "#a8a29e"
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", background: inputBg, border: `1px solid ${inputBorder}`,
+    color: text, fontSize: 13, fontFamily: "inherit", outline: "none",
+    padding: "10px 12px", boxSizing: "border-box", resize: "none",
+    transition: "border-color 0.15s",
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+      {/* Header bar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: text, letterSpacing: "-0.03em", margin: 0 }}>Playground</h2>
+          <p style={{ fontSize: 13, color: subtext, marginTop: 4 }}>
+            Construct and fire test requests against <strong style={{ color: text }}>{model.name}</strong>. Responses are simulated — connect your API key for live calls.
+          </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", background: `${accent}12`, border: `1px solid ${accent}25`, flexShrink: 0 }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>Simulated Mode</span>
+        </div>
+      </div>
+
+      {/* Two-column layout */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: border, minHeight: 540 }}>
+
+        {/* ── LEFT: Request builder ── */}
+        <div style={{ background: surface, display: "flex", flexDirection: "column", gap: 0 }}>
+          {/* Panel header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: `1px solid ${border}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Terminal size={13} style={{ color: accent }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: text, textTransform: "uppercase", letterSpacing: "0.08em" }}>Request</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 8px", border: `1px solid ${border}` }}>
+              <span style={{ padding: "2px 6px", background: `${accent}20`, color: accent, fontFamily: "monospace", fontSize: 10, fontWeight: 700 }}>{model.endpoint.method}</span>
+              <span style={{ fontSize: 10, fontFamily: "monospace", color: muted }}>{model.endpoint.path}</span>
+            </div>
+          </div>
+
+          <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
+            {/* System prompt (text generation) */}
+            {isTextGeneration && (
+              <div>
+                <button onClick={() => setShowSystem(s => !s)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", color: muted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: 0, marginBottom: showSystem ? 8 : 0 }}>
+                  {showSystem ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                  System Prompt
+                </button>
+                {showSystem && (
+                  <textarea rows={2} value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
+                    placeholder="Set the assistant's behavior..."
+                    style={{ ...inputStyle }}
+                    onFocus={e => e.currentTarget.style.borderColor = accent}
+                    onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Main input */}
+            <div style={{ flex: 1 }}>
+              {(isTextGeneration || isVideoGeneration || isVoiceSynthesis) && (
+                <>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                    {isVideoGeneration ? "Video Prompt" : isVoiceSynthesis ? "Text to Synthesize" : "Text Prompt"}
+                  </label>
+                  <textarea
+                    rows={isVideoGeneration ? 5 : 7}
+                    value={textInput}
+                    onChange={e => setTextInput(e.target.value)}
+                    placeholder={
+                      isVideoGeneration
+                        ? "e.g. Cinematic drone shot of golden-hour waves crashing on black sand beach..."
+                        : isVoiceSynthesis
+                          ? "e.g. Welcome to Modelsnest, your AI infrastructure platform."
+                          : "e.g. Explain the concept of neural networks in simple terms..."
+                    }
+                    style={{ ...inputStyle }}
+                    onFocus={e => e.currentTarget.style.borderColor = accent}
+                    onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                    onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleRun() }}
+                  />
+                </>
+              )}
+
+              {isImageGeneration && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                      Image Prompt
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={imagePrompt}
+                      onChange={e => setImagePrompt(e.target.value)}
+                      placeholder="e.g. A cinematic sunset over futuristic mountains"
+                      style={{ ...inputStyle }}
+                      onFocus={e => e.currentTarget.style.borderColor = accent}
+                      onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                      Reference Image URL (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={imageUrl}
+                      onChange={e => setImageUrl(e.target.value)}
+                      placeholder="https://example.com/reference-image.png"
+                      style={{ ...inputStyle }}
+                      onFocus={e => e.currentTarget.style.borderColor = accent}
+                      onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {isTranscription && (
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                    Audio URL
+                  </label>
+                  <input
+                    type="text"
+                    value={audioUrl}
+                    onChange={e => setAudioUrl(e.target.value)}
+                    placeholder="https://example.com/audio-file.mp3"
+                    style={{ ...inputStyle }}
+                    onFocus={e => e.currentTarget.style.borderColor = accent}
+                    onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                  />
+                </div>
+              )}
+
+              <div style={{ fontSize: 10, color: muted, marginTop: 4, textAlign: "right" }}>⌘↵ to send</div>
+            </div>
+
+            {/* Category-specific params */}
+            {(isTextGeneration || isImageGeneration || isVideoGeneration || isVoiceSynthesis || isTranscription) && (
+              <div>
+                <button onClick={() => setShowParams(s => !s)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", border: `1px solid ${border}`, cursor: "pointer", padding: "9px 12px", color: text }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <Sliders size={12} style={{ color: accent }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>Parameters</span>
+                  </div>
+                  {showParams ? <ChevronUp size={12} style={{ color: muted }} /> : <ChevronDown size={12} style={{ color: muted }} />}
+                </button>
+                {showParams && (
+                  <div style={{ border: `1px solid ${border}`, borderTop: "none", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 14 }}>
+
+                    {/* Temperature slider */}
+                    {isTextGeneration && (
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Temperature</label>
+                        <span style={{ fontSize: 12, fontFamily: "monospace", color: accent, fontWeight: 700 }}>{temperature.toFixed(2)}</span>
+                      </div>
+                      <input type="range" min={0} max={2} step={0.01} value={temperature}
+                        onChange={e => setTemperature(parseFloat(e.target.value))}
+                        style={{ width: "100%", accentColor: accent, cursor: "pointer" }}
+                      />
+                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                        <span style={{ fontSize: 10, color: muted }}>Deterministic</span>
+                        <span style={{ fontSize: 10, color: muted }}>Creative</span>
+                      </div>
+                    </div>
+                    )}
+
+                    {/* Max tokens */}
+                    {isTextGeneration && (
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                          <label style={{ fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Max Tokens</label>
+                          <span style={{ fontSize: 12, fontFamily: "monospace", color: accent, fontWeight: 700 }}>{maxTokens}</span>
+                        </div>
+                        <input type="range" min={64} max={4096} step={64} value={maxTokens}
+                          onChange={e => setMaxTokens(parseInt(e.target.value))}
+                          style={{ width: "100%", accentColor: accent, cursor: "pointer" }}
+                        />
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                          <span style={{ fontSize: 10, color: muted }}>64</span>
+                          <span style={{ fontSize: 10, color: muted }}>4096</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {(isVideoGeneration || isTranscription) && (
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                          <label style={{ fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                            Duration (seconds)
+                          </label>
+                          <span style={{ fontSize: 12, fontFamily: "monospace", color: accent, fontWeight: 700 }}>{durationSeconds}</span>
+                        </div>
+                        <input type="range" min={1} max={120} step={1} value={durationSeconds}
+                          onChange={e => setDurationSeconds(parseInt(e.target.value))}
+                          style={{ width: "100%", accentColor: accent, cursor: "pointer" }}
+                        />
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                          <span style={{ fontSize: 10, color: muted }}>1s</span>
+                          <span style={{ fontSize: 10, color: muted }}>120s</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {isVoiceSynthesis && (
+                      <div>
+                        <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                          Voice
+                        </label>
+                        <input type="text" value={voiceName} onChange={e => setVoiceName(e.target.value)}
+                          style={{ ...inputStyle }}
+                          onFocus={e => e.currentTarget.style.borderColor = accent}
+                          onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                        />
+                      </div>
+                    )}
+
+                    {isImageGeneration && (
+                      <div>
+                        <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                          Image Size
+                        </label>
+                        <input type="text" value={imageSize} onChange={e => setImageSize(e.target.value)}
+                          placeholder="1024x1024"
+                          style={{ ...inputStyle }}
+                          onFocus={e => e.currentTarget.style.borderColor = accent}
+                          onBlur={e => e.currentTarget.style.borderColor = inputBorder}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={handleRun} disabled={isLoading || !canSend}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: "11px", background: !canSend ? (isDark ? "#1a1a20" : "#e4e4e0") : accent,
+                  border: "none", color: !canSend ? muted : "#fff",
+                  fontSize: 13, fontWeight: 700, cursor: !canSend ? "not-allowed" : "pointer",
+                  transition: "all 0.15s", opacity: isLoading ? 0.7 : 1,
+                }}>
+                {isLoading ? <Loader2 size={14} style={{ animation: "spin 0.8s linear infinite" }} /> : <Send size={14} />}
+                {isLoading ? "Sending..." : "Send Request"}
+              </button>
+              {hasRun && (
+                <button onClick={handleReset}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "11px 14px", background: "transparent", border: `1px solid ${border}`, color: muted, fontSize: 13, cursor: "pointer" }}>
+                  <RotateCcw size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── RIGHT: Response viewer ── */}
+        <div style={{ background: surface, display: "flex", flexDirection: "column" }}>
+          {/* Panel header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: `1px solid ${border}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Eye size={13} style={{ color: response ? "#10b981" : muted }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: text, textTransform: "uppercase", letterSpacing: "0.08em" }}>Response</span>
+              {latency && (
+                <span style={{ fontSize: 10, padding: "2px 7px", background: "#10b98118", border: "1px solid #10b98130", color: "#10b981", fontFamily: "monospace" }}>
+                  {latency}ms
+                </span>
+              )}
+            </div>
+            {response && (
+              <div style={{ display: "flex", gap: 1, background: border }}>
+                {(["pretty", "raw"] as const).map(t => (
+                  <button key={t} onClick={() => setResponseTab(t)}
+                    style={{ padding: "4px 10px", background: responseTab === t ? isDark ? "#18181c" : "#fff" : "transparent", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, color: responseTab === t ? text : muted, textTransform: "capitalize" }}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Response body */}
+          <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+            {!hasRun && !isLoading && (
+              <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 32 }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", border: `1px dashed ${border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Send size={18} style={{ color: muted }} />
+                </div>
+                <p style={{ fontSize: 13, color: muted, textAlign: "center", maxWidth: 200, lineHeight: 1.6 }}>
+                  Fill in the request and hit <strong style={{ color: text }}>Send</strong> to see the response here.
+                </p>
+              </div>
+            )}
+
+            {isLoading && (
+              <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
+                <div style={{ position: "relative", width: 40, height: 40 }}>
+                  <div style={{ position: "absolute", inset: 0, border: `2px solid ${border}`, borderTop: `2px solid ${accent}`, borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                </div>
+                <p style={{ fontSize: 13, color: muted }}>Awaiting response…</p>
+              </div>
+            )}
+
+            {response && !isLoading && (
+              <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                {/* Status bar */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: (statusCode && statusCode >= 400) ? "#ef444410" : "#10b98110", borderBottom: (statusCode && statusCode >= 400) ? `1px solid #ef444420` : `1px solid #10b98120` }}>
+                  <CheckCircle2 size={13} style={{ color: (statusCode && statusCode >= 400) ? "#ef4444" : "#10b981" }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: (statusCode && statusCode >= 400) ? "#ef4444" : "#10b981" }}>
+                    {statusCode ?? 200} {statusText || "OK"}
+                  </span>
+                  <span style={{ fontSize: 11, color: muted, marginLeft: "auto" }}>{responseType}</span>
+                </div>
+
+                {responseTab === "pretty" && (
+                  <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+                    {(response?.code === "NO_API_TOKENS" || statusText === "Missing API Key") && (
+                      <div style={{ marginBottom: 16, padding: "14px 16px", background: "#ef444410", border: "1px solid #ef444430" }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#ef4444", marginBottom: 6 }}>
+                          API key required
+                        </div>
+                        <p style={{ fontSize: 12, color: subtext, margin: "0 0 10px" }}>
+                          Generate an API key from your dashboard to send live requests from Playground.
+                        </p>
+                        <Link href="/dashboard/apis" style={{ textDecoration: "none" }}>
+                          <button style={{ padding: "8px 12px", background: accent, border: "none", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                            Create API Key
+                          </button>
+                        </Link>
+                      </div>
+                    )}
+
+                    {/* Content block */}
+                    {(response.choices || response.candidates) && (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Content</div>
+                        <div style={{ padding: "14px 16px", background: isDark ? "#0d0d12" : "#f5f5f2", border: `1px solid ${border}`, fontSize: 13, color: text, lineHeight: 1.75, whiteSpace: "pre-wrap" }}>
+                          {response.choices?.[0]?.message?.content || response.choices?.[0]?.text || response.candidates?.[0]?.content?.parts?.[0]?.text || ""}
+                        </div>
+                      </div>
+                    )}
+
+                    {response.text && (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Transcript</div>
+                        <div style={{ padding: "14px 16px", background: isDark ? "#0d0d12" : "#f5f5f2", border: `1px solid ${border}`, fontSize: 13, color: text, lineHeight: 1.75 }}>
+                          {response.text}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Usage / meta grid */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: border }}>
+                      {response.usage && Object.entries(response.usage).map(([k, v]) => (
+                        <div key={k} style={{ padding: "10px 14px", background: surface }}>
+                          <div style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{k.replace(/_/g, " ")}</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: text }}>{String(v)}</div>
+                        </div>
+                      ))}
+                      {response.analytics && Object.entries(response.analytics).map(([k, v]) => (
+                        <div key={k} style={{ padding: "10px 14px", background: surface }}>
+                          <div style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{k.replace(/_/g, " ")}</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: text }}>{String(v)}</div>
+                        </div>
+                      ))}
+                      {response.duration !== undefined && (
+                        <div style={{ padding: "10px 14px", background: surface }}>
+                          <div style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Duration</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: text }}>{response.duration}s</div>
+                        </div>
+                      )}
+                      {response.language && (
+                        <div style={{ padding: "10px 14px", background: surface }}>
+                          <div style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Language</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: text }}>{response.language}</div>
+                        </div>
+                      )}
+                      {response.estimated_seconds !== undefined && (
+                        <div style={{ padding: "10px 14px", background: surface }}>
+                          <div style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>ETA</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: text }}>{response.estimated_seconds}s</div>
+                        </div>
+                      )}
+                      <div style={{ padding: "10px 14px", background: surface }}>
+                        <div style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Latency</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: "#10b981" }}>{latency}ms</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {responseTab === "raw" && (
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", background: codeBg }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "6px 14px", borderBottom: `1px solid ${isDark ? "#18181c" : "#e7e5e4"}` }}>
+                      <button onClick={copyResp}
+                        style={{ display: "flex", alignItems: "center", gap: 5, background: "transparent", border: "none", cursor: "pointer", fontSize: 11, fontFamily: "monospace", color: copiedResp ? "#10b981" : gutterC }}>
+                        {copiedResp ? <Check size={11} /> : <Copy size={11} />}
+                        {copiedResp ? "Copied!" : "Copy JSON"}
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", flex: 1, overflowY: "auto" }}>
+                      <div style={{ display: "flex", flexDirection: "column", padding: "14px 10px", borderRight: `1px solid ${isDark ? "#18181c" : "#e7e5e4"}`, userSelect: "none", flexShrink: 0 }}>
+                        {prettyLines.map((_, i) => (
+                          <span key={i} style={{ fontSize: 11, fontFamily: "monospace", lineHeight: "20px", color: gutterC, textAlign: "right", minWidth: 24 }}>{i + 1}</span>
+                        ))}
+                      </div>
+                      <pre style={{ margin: 0, padding: "14px 16px", fontSize: 12, fontFamily: "monospace", lineHeight: "20px", flex: 1, overflowX: "auto" }}>
+                        {prettyLines.map((line, i) => (
+                          <div key={i} style={{ color: line.includes('"') ? lineC : cmtC }}>{line || "\u00A0"}</div>
+                        ))}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer notice */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: isDark ? "#0d0d10" : "#f5f5f2", border: `1px solid ${border}`, borderTop: "none" }}>
+        <AlertCircle size={12} style={{ color: muted, flexShrink: 0 }} />
+        <span style={{ fontSize: 11, color: muted, lineHeight: 1.5 }}>
+          Responses are <strong style={{ color: subtext }}>simulated</strong> for demonstration. To make live API calls, <Link href="/dashboard/apis" style={{ color: accent, textDecoration: "none", fontWeight: 700 }}>generate an API key</Link> and connect your application.
+        </span>
+      </div>
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
@@ -1201,146 +850,107 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
 
   useEffect(() => {
     let isMounted = true
-
     const loadModel = async () => {
       setIsLoading(true)
       try {
         const supabase = createClient()
-        
-        // Fetch model main info
         const { data: modelRow, error: modelError } = await supabase
           .from("ai_models")
-          .select("id, slug, name, provider, category_slug, docs_page_color, docs_page_description")
+          .select("id, slug, name, provider, category_slug, display_color, card_description")
           .eq("slug", modelSlug)
           .single()
+        if (modelError || !modelRow) throw new Error("Model not found")
 
-        if (modelError || !modelRow) {
-          throw new Error("Model not found")
-        }
-
-        // Fetch doc details
         const { data: docRow, error: docError } = await supabase
-          .from("ai_model_docs")
-          .select("*")
+          .from("ai_model_docs").select("*").eq("model_id", modelRow.id).single()
+        if (docError && docError.code !== "PGRST116") throw docError
+
+        const { data: featureRows, error: featureError } = await supabase
+          .from("ai_model_features")
+          .select("feature_text")
           .eq("model_id", modelRow.id)
-          .single()
-
-        if (docError) {
-          throw docError
-        }
-
-        // Fetch steps
-        const { data: stepsRows, error: stepsError } = await supabase
-          .from("ai_model_doc_steps")
-          .select("*")
-          .eq("model_id", modelRow.id)
-          .order("step_order", { ascending: true })
-
-        if (stepsError) {
-          throw stepsError
-        }
-
-        // Fetch parameters
-        const { data: paramRows, error: paramError } = await supabase
-          .from("ai_model_doc_parameters")
-          .select("*")
-          .eq("model_id", modelRow.id)
+          .eq("source", "docs_page")
           .order("sort_order", { ascending: true })
+        if (featureError) throw featureError
 
-        if (paramError) {
-          throw paramError
-        }
+        const { data: stepsRows, error: stepsError } = await supabase
+          .from("ai_model_doc_steps").select("*").eq("model_id", modelRow.id).order("step_order", { ascending: true })
+        if (stepsError) throw stepsError
 
-        // Fetch examples
+        const { data: paramRows, error: paramError } = await supabase
+          .from("ai_model_doc_parameters").select("*").eq("model_id", modelRow.id).order("sort_order", { ascending: true })
+        if (paramError) throw paramError
+
         const { data: exampleRows, error: exampleError } = await supabase
-          .from("ai_model_doc_examples")
-          .select("*")
-          .eq("model_id", modelRow.id)
-          .order("language", { ascending: true })
+          .from("ai_model_doc_examples").select("*").eq("model_id", modelRow.id).order("sort_order", { ascending: true })
+        if (exampleError) throw exampleError
 
-        if (exampleError) {
-          throw exampleError
-        }
-
-        // Fetch pricing
         const { data: pricingRow, error: pricingError } = await supabase
-          .from("ai_model_pricing")
-          .select("*")
-          .eq("model_id", modelRow.id)
-          .single()
+          .from("ai_model_pricing").select("*").eq("model_id", modelRow.id).single()
+        if (pricingError && pricingError.code !== "PGRST116") throw pricingError
 
-        if (pricingError && pricingError.code !== "PGRST116") {
-          throw pricingError
-        }
-
-        // Build features array from docs_page_payload if available
-        let features: string[] = []
+        let features: string[] = (featureRows ?? []).map((row) => row.feature_text).filter(Boolean)
         try {
-          if (docRow.docs_page_payload && docRow.docs_page_payload.features) {
+          if (!features.length && docRow?.docs_page_payload?.features) {
             features = docRow.docs_page_payload.features
           }
-        } catch (e) {
-          // If docs_page_payload is not available, fallback to empty
-          features = []
-        }
+        } catch (e) { features = [] }
 
-        // Build examples map
         const examplesMap: Record<string, string> = {}
         for (const ex of exampleRows ?? []) {
-          examplesMap[ex.language] = ex.code_example
+          const language = String(ex.language || "").trim()
+          if (!language) continue
+          const normalized = language.toLowerCase()
+          if (normalized === "python") examplesMap.Python = ex.code_example
+          else if (normalized === "javascript" || normalized === "js" || normalized === "node") examplesMap.JavaScript = ex.code_example
+          else if (normalized === "curl" || normalized === "curl") examplesMap.cURL = ex.code_example
+          else examplesMap[language] = ex.code_example
         }
 
-        // Build params array
-        const paramsArray = (paramRows ?? []).map(p => ({
-          name: p.param_name,
-          type: p.param_type,
-          req: p.is_required,
-          default: p.default_value ?? "—",
-          desc: p.description,
-        }))
+        try {
+          if (docRow?.docs_page_payload?.examples && typeof docRow.docs_page_payload.examples === "object") {
+            for (const [language, code] of Object.entries(docRow.docs_page_payload.examples)) {
+              if (typeof code === "string" && !examplesMap[language]) {
+                examplesMap[language] = code
+              }
+            }
+          }
+        } catch {}
 
-        // Build steps array
+        const paramsArray = (paramRows ?? []).map(p => ({
+          name: p.param_name, type: p.param_type, req: p.is_required,
+          default: p.default_value ?? "—", desc: p.description,
+        }))
         const stepsArray = (stepsRows ?? []).map(s => s.step_text)
 
         const modelData = {
-          name: modelRow.name,
-          provider: modelRow.provider,
-          category: modelRow.category_slug,
-          color: modelRow.docs_page_color || "#6366f1",
-          description: modelRow.docs_page_description || "",
-          features: features,
-          steps: stepsArray,
-          endpoint: docRow.endpoint_info ? JSON.parse(typeof docRow.endpoint_info === 'string' ? docRow.endpoint_info : JSON.stringify(docRow.endpoint_info)) : { method: "POST", path: "/api/endpoint", status: "Stable" },
+          slug: modelRow.slug,
+          name: modelRow.name, provider: modelRow.provider, category: modelRow.category_slug,
+          color: modelRow.display_color || "#6366f1",
+          description: docRow?.docs_description || modelRow.card_description || "",
+          features, steps: stepsArray,
+          endpoint: {
+            method: docRow?.endpoint_method || "POST",
+            path: docRow?.endpoint_path || "/api/v1/chat/completions",
+            status: docRow?.endpoint_status || "Stable",
+          },
           params: paramsArray,
-          response: docRow.response_schema || "{}",
+          response: docRow?.response_example || "{}",
           examples: examplesMap,
-          pricing: pricingRow ? {
-            input: String(pricingRow.input_price),
-            output: String(pricingRow.output_price),
-            unit: pricingRow.price_unit || "1K tokens",
-          } : { input: "0", output: "0", unit: "1K tokens" },
+          pricing: pricingRow
+            ? { input: String(pricingRow.input_price), output: String(pricingRow.output_price), unit: pricingRow.price_unit || "1K tokens" }
+            : { input: "0", output: "0", unit: "1K tokens" },
         }
-
-        if (isMounted) {
-          setModel(modelData)
-        }
+        if (isMounted) setModel(modelData)
       } catch (err) {
         console.error("Failed to load model", err)
-        if (isMounted) {
-          // Set fallback model
-          setModel(buildFallback(modelSlug))
-        }
+        if (isMounted) setModel(buildFallback(modelSlug))
       } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
+        if (isMounted) setIsLoading(false)
       }
     }
-
     loadModel()
-    return () => {
-      isMounted = false
-    }
+    return () => { isMounted = false }
   }, [modelSlug])
 
   const bg      = isDark ? "#0d0d10" : "#f8f8f6"
@@ -1350,13 +960,22 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
   const muted    = isDark ? "#52525b" : "#a1a1aa"
   const subtext  = isDark ? "#71717a" : "#71717a"
   const accent   = model?.color || "#6366f1"
+  const quickstartExample =
+    model?.examples?.Python ||
+    model?.examples?.python ||
+    model?.examples?.JavaScript ||
+    model?.examples?.cURL ||
+    Object.values(model?.examples ?? {}).find((value) => typeof value === "string") ||
+    ""
 
+  // Playground inserted as second tab (index 1)
   const SECTIONS = [
-    { id: "overview",   label: "Overview"   },
-    { id: "quickstart", label: "Quickstart" },
-    { id: "reference",  label: "API Ref"    },
-    { id: "examples",   label: "Examples"   },
-    { id: "pricing",    label: "Pricing"    },
+    { id: "overview",    label: "Overview"    },
+    { id: "playground",  label: "Playground"  },
+    { id: "quickstart",  label: "Quickstart"  },
+    { id: "reference",   label: "API Ref"     },
+    { id: "examples",    label: "Examples"    },
+    { id: "pricing",     label: "Pricing"     },
   ]
 
   const CategoryIcon = model?.category === "voice" ? Mic
@@ -1368,12 +987,9 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
   if (isLoading) {
     return (
       <div style={{ minHeight: "100vh", background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
-        <div style={{
-          width: 40, height: 40,
-          border: `2px solid ${border}`, borderTop: "2px solid var(--color-primary)",
-          borderRadius: "50%", animation: "spin 0.8s linear infinite", marginBottom: 16,
-        }} />
+        <div style={{ width: 40, height: 40, border: `2px solid ${border}`, borderTop: "2px solid var(--color-primary)", borderRadius: "50%", animation: "spin 0.8s linear infinite", marginBottom: 16 }} />
         <p style={{ fontSize: 16, fontWeight: 700, color: "var(--color-primary)" }}>Loading documentation...</p>
+        <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
       </div>
     )
   }
@@ -1382,14 +998,9 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
     return (
       <div style={{ minHeight: "100vh", background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
         <p style={{ fontSize: 16, fontWeight: 700, color: text }}>Model not found</p>
-        <Link href="/dashboard/models/docs" style={{ textDecoration: "none" }}>
-          <button style={{
-            marginTop: 16,
-            padding: "8px 16px", borderRadius: 8,
-            background: "var(--color-primary)", color: "#fff",
-            border: "none", cursor: "pointer", fontWeight: 600,
-          }}>
-            Back to Docs
+        <Link href="/dashboard/models" style={{ textDecoration: "none" }}>
+          <button style={{ marginTop: 16, padding: "8px 16px", borderRadius: 8, background: "var(--color-primary)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}>
+            Back to Models
           </button>
         </Link>
       </div>
@@ -1401,8 +1012,7 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
 
       {/* ── PAGE HEADER ── */}
       <div style={{
-        padding: "36px 48px 32px",
-        borderBottom: `1px solid ${border}`,
+        padding: "36px 48px 32px", borderBottom: `1px solid ${border}`,
         background: isDark ? "linear-gradient(160deg,#0d0d10,#111118)" : surface,
         position: "relative", overflow: "hidden",
       }}>
@@ -1413,22 +1023,14 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
           background: isDark ? `radial-gradient(ellipse,${accent}14 0%,transparent 70%)` : "transparent", pointerEvents: "none" }} />
 
         <div style={{ position: "relative", zIndex: 1 }}>
-        <Link href="/dashboard/models/docs" style={{ textDecoration: "none" }}>
-  <button
-    style={{
-      display: "flex", alignItems: "center", gap: 6,
-      padding: "6px 12px", marginBottom: 16,
-      background: "transparent",
-      border: `1px solid ${border}`,
-      color: muted, fontSize: 12, fontWeight: 600, cursor: "pointer",
-    }}
-    onMouseEnter={e => { e.currentTarget.style.color = text; e.currentTarget.style.borderColor = accent }}
-    onMouseLeave={e => { e.currentTarget.style.color = muted; e.currentTarget.style.borderColor = border }}
-  >
-    <ArrowLeft size={13} /> Back to Docs
-  </button>
-</Link>
-          {/* Breadcrumb */}
+          <Link href="/dashboard/models" style={{ textDecoration: "none" }}>
+            <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", marginBottom: 16, background: "transparent", border: `1px solid ${border}`, color: muted, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              onMouseEnter={e => { e.currentTarget.style.color = text; e.currentTarget.style.borderColor = accent }}
+              onMouseLeave={e => { e.currentTarget.style.color = muted; e.currentTarget.style.borderColor = border }}>
+              <ArrowLeft size={13} /> Back to Models
+            </button>
+          </Link>
+
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 22 }}>
             <Link href="/dashboard/models" style={{ textDecoration: "none" }}>
               <span style={{ fontSize: 12, color: muted, cursor: "pointer", transition: "color 0.15s" }}
@@ -1471,7 +1073,6 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
               </div>
             </div>
 
-            {/* Pricing strip */}
             <div style={{ display: "flex", gap: 1, background: border, flexShrink: 0 }}>
               <div style={{ padding: "16px 22px", background: surface }}>
                 <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: muted, marginBottom: 6 }}>Input</div>
@@ -1500,22 +1101,31 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
               color: activeSection === s.id ? text : muted,
               borderBottom: `2px solid ${activeSection === s.id ? accent : "transparent"}`,
               transition: "all 0.15s",
+              // Playground tab gets a subtle highlight
+              ...(s.id === "playground" && activeSection !== "playground" ? {
+                background: isDark ? "rgba(255,255,255,0.015)" : "rgba(0,0,0,0.015)",
+              } : {}),
             }}
             onMouseEnter={e => { if (activeSection !== s.id) e.currentTarget.style.color = text }}
             onMouseLeave={e => { if (activeSection !== s.id) e.currentTarget.style.color = muted }}
           >
-            {s.label}
+            {s.id === "playground" ? (
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Play size={11} style={{ color: activeSection === "playground" ? accent : muted }} />
+                {s.label}
+              </span>
+            ) : s.label}
           </button>
         ))}
       </div>
 
       {/* ── CONTENT ── */}
-      <div style={{ flex: 1, padding: "40px 48px", overflowY: "auto" }}>
+      <div style={{ flex: 1, padding: activeSection === "playground" ? "32px 48px" : "40px 48px", overflowY: "auto" }}>
         <AnimatePresence mode="wait">
           <motion.div key={activeSection}
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            style={{ maxWidth: 860 }}>
+            style={{ maxWidth: activeSection === "playground" ? 1100 : 860 }}>
 
             {/* ─── OVERVIEW ─── */}
             {activeSection === "overview" && (
@@ -1524,7 +1134,6 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                   <h2 style={{ fontSize: 18, fontWeight: 800, color: text, letterSpacing: "-0.03em", marginBottom: 10 }}>About {model.name}</h2>
                   <p style={{ fontSize: 14, color: subtext, lineHeight: 1.8 }}>{model.description}</p>
                 </div>
-
                 <div>
                   <h3 style={{ fontSize: 12, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Capabilities</h3>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 1, background: border }}>
@@ -1537,7 +1146,6 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                     ))}
                   </div>
                 </div>
-
                 <div>
                   <h3 style={{ fontSize: 12, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Primary Endpoint</h3>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", background: surface, border: `1px solid ${border}` }}>
@@ -1546,7 +1154,29 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                     <span style={{ marginLeft: "auto", fontSize: 11, padding: "2px 8px", border: `1px solid ${border}`, color: muted }}>{model.endpoint.status}</span>
                   </div>
                 </div>
+                {/* CTA to playground */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 22px", background: `${accent}08`, border: `1px solid ${accent}20` }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${accent}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Play size={15} style={{ color: accent }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: text, marginBottom: 2 }}>Try it in the Playground</div>
+                    <div style={{ fontSize: 12, color: subtext }}>Build and fire test requests without writing any code.</div>
+                  </div>
+                  <button onClick={() => setActiveSection("playground")}
+                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: accent, border: "none", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                    Open Playground <ChevronRight size={12} />
+                  </button>
+                </div>
               </div>
+            )}
+
+            {/* ─── PLAYGROUND ─── */}
+            {activeSection === "playground" && (
+              <PlaygroundTab
+                model={model} isDark={isDark} border={border}
+                surface={surface} text={text} muted={muted} subtext={subtext} accent={accent}
+              />
             )}
 
             {/* ─── QUICKSTART ─── */}
@@ -1556,7 +1186,6 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                   <h2 style={{ fontSize: 18, fontWeight: 800, color: text, letterSpacing: "-0.03em", marginBottom: 6 }}>Get started in minutes</h2>
                   <p style={{ fontSize: 14, color: subtext }}>Three steps to your first successful API call.</p>
                 </div>
-
                 <div style={{ display: "flex", flexDirection: "column", gap: 1, background: border }}>
                   {model.steps.map((step: string, i: number) => (
                     <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
@@ -1570,12 +1199,10 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                     </motion.div>
                   ))}
                 </div>
-
                 <div>
                   <h3 style={{ fontSize: 12, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Your first request</h3>
-                  <CodeBlock code={model.examples["Python"]} lang="Python" isDark={isDark} border={border} />
+                  <CodeBlock code={quickstartExample as string} lang="Python" isDark={isDark} border={border} />
                 </div>
-
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <Link href="/dashboard/apis" style={{ textDecoration: "none" }}>
                     <button style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 18px", background: accent, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
@@ -1597,15 +1224,11 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                   <h2 style={{ fontSize: 18, fontWeight: 800, color: text, letterSpacing: "-0.03em", marginBottom: 6 }}>API Reference</h2>
                   <p style={{ fontSize: 14, color: subtext }}>Complete endpoint documentation, request parameters and response schema.</p>
                 </div>
-
-                {/* Endpoint pill */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: surface, border: `1px solid ${border}` }}>
                   <span style={{ padding: "4px 10px", background: `${accent}20`, color: accent, fontFamily: "monospace", fontSize: 12, fontWeight: 700 }}>{model.endpoint.method}</span>
                   <code style={{ fontFamily: "monospace", fontSize: 14, color: text, flex: 1 }}>{model.endpoint.path}</code>
                   <span style={{ fontSize: 11, padding: "2px 8px", border: `1px solid ${border}`, color: muted }}>{model.endpoint.status}</span>
                 </div>
-
-                {/* Parameters table */}
                 <div>
                   <h3 style={{ fontSize: 12, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>Request Parameters</h3>
                   <div style={{ border: `1px solid ${border}`, overflow: "hidden" }}>
@@ -1627,8 +1250,6 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                     ))}
                   </div>
                 </div>
-
-                {/* Response */}
                 <div>
                   <h3 style={{ fontSize: 12, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>200 Response</h3>
                   <CodeBlock code={model.response} lang="JSON" isDark={isDark} border={border} />
@@ -1643,8 +1264,6 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                   <h2 style={{ fontSize: 18, fontWeight: 800, color: text, letterSpacing: "-0.03em", marginBottom: 6 }}>Code Examples</h2>
                   <p style={{ fontSize: 14, color: subtext }}>Drop-in snippets in Python, JavaScript and cURL — copy and run.</p>
                 </div>
-
-                {/* Language tabs */}
                 <div style={{ display: "flex", gap: 1, background: border }}>
                   {LANGS.filter(l => model.examples[l]).map(l => (
                     <button key={l} onClick={() => setActiveLang(l)}
@@ -1659,19 +1278,17 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                     >{l}</button>
                   ))}
                 </div>
-
                 <AnimatePresence mode="wait">
                   <motion.div key={activeLang} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.14 }}>
                     <CodeBlock code={model.examples[activeLang] ?? ""} lang={activeLang} isDark={isDark} border={border} />
                   </motion.div>
                 </AnimatePresence>
-
-                {/* Playground */}
                 <div style={{ padding: "22px 24px", background: surface, border: `1px solid ${border}` }}>
                   <h3 style={{ fontSize: 13, fontWeight: 700, color: text, marginBottom: 6 }}>Try it live</h3>
                   <p style={{ fontSize: 13, color: subtext, marginBottom: 16 }}>Run requests against {model.name} directly from your browser.</p>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    <button style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 18px", background: accent, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    <button onClick={() => setActiveSection("playground")}
+                      style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 18px", background: accent, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                       <Play size={14} /> Open Playground
                     </button>
                     <button style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 18px", background: "transparent", border: `1px solid ${border}`, color: text, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
@@ -1689,7 +1306,6 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                   <h2 style={{ fontSize: 18, fontWeight: 800, color: text, letterSpacing: "-0.03em", marginBottom: 6 }}>Pricing</h2>
                   <p style={{ fontSize: 14, color: subtext }}>Pay only for what you use. No monthly minimums, no setup fees.</p>
                 </div>
-
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 1, background: border }}>
                   {[
                     { label: "Input",  price: model.pricing.input,  color: "#10b981" },
@@ -1709,7 +1325,6 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
                     <div style={{ fontSize: 13, color: muted }}>No minimums or commitments</div>
                   </div>
                 </div>
-
                 <Link href="/dashboard/billing" style={{ textDecoration: "none", display: "inline-block" }}>
                   <button style={{ display: "flex", alignItems: "center", gap: 7, padding: "11px 20px", background: accent, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                     <DollarSign size={14} /> View Billing Dashboard
@@ -1721,6 +1336,8 @@ export function ModelDocsPage({ user, modelSlug }: ModelDocsPageProps) {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
