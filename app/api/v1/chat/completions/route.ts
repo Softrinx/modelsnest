@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { NovitaAI } from "@/lib/chat-api"
 import { verifyApiToken } from "@/app/actions/api-tokens"
 import { createAdminClient } from "@/lib/supabase/server"
+import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
 
 const DEFAULT_PRICE_PER_1K_TOKENS_USD = 0.001
 const PROVIDER_MODEL_BY_SLUG: Record<string, string> = {
@@ -70,13 +71,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const apiKey = process.env.NOVITA_API_KEY
+    const apiKey = (await getActiveProviderApiKey("novita")) || process.env.NOVITA_API_KEY
     if (!apiKey) {
       return NextResponse.json(
         {
           error: "Server misconfiguration",
           code: "NOVITA_API_KEY_MISSING",
-          message: "NOVITA_API_KEY environment variable is not set",
+          message: "No active Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
         },
         { status: 500 },
       )

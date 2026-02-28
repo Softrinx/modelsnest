@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyApiToken } from "@/app/actions/api-tokens"
 import { createAdminClient } from "@/lib/supabase/server"
+import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
 
 const PROVIDER_BASE_URL = process.env.NOVITA_BASE_URL || "https://api.novita.ai/openai"
 
@@ -63,13 +64,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const providerApiKey = process.env.NOVITA_API_KEY
+    const providerApiKey = (await getActiveProviderApiKey("novita")) || process.env.NOVITA_API_KEY
     if (!providerApiKey) {
       return NextResponse.json(
         {
           error: "Server misconfiguration",
           code: "NOVITA_API_KEY_MISSING",
-          message: "NOVITA_API_KEY environment variable is not set",
+          message: "No active Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
         },
         { status: 500 },
       )

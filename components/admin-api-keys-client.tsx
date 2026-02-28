@@ -1,6 +1,5 @@
 "use client"
-
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "@/contexts/themeContext"
 import {
@@ -17,6 +16,7 @@ interface ApiKeyEntry {
   key: string
   addedAt: string
   status: "active" | "error" | "untested"
+  isPrimary: boolean
 }
 
 interface Provider {
@@ -341,6 +341,8 @@ function AddKeyModal({
 function KeyRow({
   entry,
   onDelete,
+  onSetPrimary,
+  isPrimaryUpdating,
   isDark,
   border,
   surface,
@@ -350,6 +352,8 @@ function KeyRow({
 }: {
   entry: ApiKeyEntry
   onDelete: (id: string) => void
+  onSetPrimary: (id: string) => void
+  isPrimaryUpdating: boolean
   isDark: boolean
   border: string
   surface: string
@@ -447,15 +451,51 @@ function KeyRow({
         </button>
       </div>
 
-      {/* Delete */}
-      <button
-        onClick={() => onDelete(entry.id)}
-        style={{ background: "transparent", border: "none", cursor: "pointer", color: textMuted, padding: 6, display: "flex", flexShrink: 0 }}
-        onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
-        onMouseLeave={e => (e.currentTarget.style.color = textMuted)}
-      >
-        <Trash2 size={15} />
-      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {entry.isPrimary ? (
+          <span style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "#10b981",
+            border: "1px solid rgba(16,185,129,0.3)",
+            background: "rgba(16,185,129,0.12)",
+            padding: "4px 8px",
+          }}>
+            In Use
+          </span>
+        ) : (
+          <button
+            onClick={() => onSetPrimary(entry.id)}
+            disabled={isPrimaryUpdating}
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+              border: `1px solid ${border}`,
+              color: textMuted,
+              cursor: isPrimaryUpdating ? "not-allowed" : "pointer",
+              opacity: isPrimaryUpdating ? 0.65 : 1,
+              padding: "5px 9px",
+              fontFamily: "inherit",
+            }}
+          >
+            Use This Key
+          </button>
+        )}
+
+        <button
+          onClick={() => onDelete(entry.id)}
+          style={{ background: "transparent", border: "none", cursor: "pointer", color: textMuted, padding: 6, display: "flex", flexShrink: 0 }}
+          onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+          onMouseLeave={e => (e.currentTarget.style.color = textMuted)}
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
     </motion.div>
   )
 }
@@ -472,42 +512,133 @@ export function AdminApiKeysClient() {
   const textMuted = isDark ? "#71717a" : "#71717a"
   const textSub = isDark ? "#52525b" : "#a1a1aa"
 
-  const [keys, setKeys] = useState<ApiKeyEntry[]>([
-    {
-      id: "1",
-      provider: "novita",
-      label: "Novita Production",
-      key: "sk-novita-live-abc123def456ghi789",
-      addedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-      status: "active",
-    },
-    {
-      id: "2",
-      provider: "models_lab",
-      label: "Models Lab Dev",
-      key: "ml_dev_xyzabcdefghijklmnop",
-      addedAt: new Date(Date.now() - 86400000).toISOString(),
-      status: "untested",
-    },
-  ])
+  const [keys, setKeys] = useState<ApiKeyEntry[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [requestError, setRequestError] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
+  const [primaryUpdatingId, setPrimaryUpdatingId] = useState<string | null>(null)
 
   const [showModal, setShowModal] = useState(false)
   const [filterProvider, setFilterProvider] = useState("all")
 
-  function addKey(entry: Omit<ApiKeyEntry, "id" | "addedAt" | "status">) {
-    setKeys(prev => [
-      ...prev,
-      {
-        ...entry,
-        id: Math.random().toString(36).slice(2),
-        addedAt: new Date().toISOString(),
-        status: "untested",
-      },
-    ])
+  async function fetchKeys() {
+    setIsLoading(true)
+    setRequestError("")
+    try {
+      const response = await fetch("/api/admin/api-keys", { cache: "no-store" })
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to fetch API keys")
+      }
+
+      const fetchedKeys = Array.isArray(payload?.keys) ? payload.keys : []
+      setKeys(fetchedKeys)
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to fetch API keys")
+      setKeys([])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  function deleteKey(id: string) {
-    setKeys(prev => prev.filter(k => k.id !== id))
+  useEffect(() => {
+    fetchKeys()
+  }, [])
+
+  async function addKey(entry: Omit<ApiKeyEntry, "id" | "addedAt" | "status">) {
+    setIsSaving(true)
+    setRequestError("")
+
+    try {
+      const response = await fetch("/api/admin/api-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: entry.provider,
+          label: entry.label,
+          key: entry.key,
+          status: "untested",
+        }),
+      })
+
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to save API key")
+      }
+
+      if (payload?.key) {
+        setKeys(prev => [payload.key, ...prev])
+      } else {
+        await fetchKeys()
+      }
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to save API key")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function deleteKey(id: string) {
+    setRequestError("")
+
+    try {
+      const response = await fetch(`/api/admin/api-keys/${id}`, {
+        method: "DELETE",
+      })
+
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to delete API key")
+      }
+
+      setKeys(prev => prev.filter(k => k.id !== id))
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to delete API key")
+    }
+  }
+
+  async function setPrimaryKey(id: string) {
+    const current = keys
+    const target = current.find(entry => entry.id === id)
+    if (!target || target.isPrimary) {
+      return
+    }
+
+    setPrimaryUpdatingId(id)
+    setRequestError("")
+
+    setKeys(prev => prev.map(item => (
+      item.provider === target.provider
+        ? { ...item, isPrimary: item.id === id }
+        : item
+    )))
+
+    try {
+      const response = await fetch(`/api/admin/api-keys/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-primary" }),
+      })
+
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to set provider API key")
+      }
+
+      if (payload?.key) {
+        setKeys(prev => prev.map(item => (
+          item.provider === payload.key.provider
+            ? { ...item, isPrimary: item.id === payload.key.id }
+            : item
+        )))
+      }
+    } catch (error) {
+      setKeys(current)
+      setRequestError(error instanceof Error ? error.message : "Failed to set provider API key")
+    } finally {
+      setPrimaryUpdatingId(null)
+    }
   }
 
   const filtered = filterProvider === "all"
@@ -570,6 +701,7 @@ export function AdminApiKeysClient() {
 
             <button
               onClick={() => setShowModal(true)}
+              disabled={isSaving}
               style={{
                 display: "flex", alignItems: "center", gap: 8,
                 padding: "11px 20px",
@@ -579,12 +711,13 @@ export function AdminApiKeysClient() {
                 fontFamily: "inherit",
                 boxShadow: "0 4px 20px rgba(99,102,241,0.35)",
                 transition: "box-shadow 0.15s",
+                opacity: isSaving ? 0.75 : 1,
               }}
               onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 6px 28px rgba(99,102,241,0.5)")}
               onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 4px 20px rgba(99,102,241,0.35)")}
             >
-              <Plus size={15} />
-              Add API Key
+              {isSaving ? <RefreshCw size={15} className="animate-spin" /> : <Plus size={15} />}
+              {isSaving ? "Saving..." : "Add API Key"}
             </button>
           </div>
         </div>
@@ -665,7 +798,7 @@ export function AdminApiKeysClient() {
             borderBottom: `1px solid ${border}`,
             background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
           }}>
-            {["Provider / Label", "Key", ""].map((h, i) => (
+            {["Provider / Label", "Key", "Usage"].map((h, i) => (
               <span key={i} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: textSub }}>
                 {h}
               </span>
@@ -674,7 +807,16 @@ export function AdminApiKeysClient() {
 
           {/* Rows */}
           <AnimatePresence mode="popLayout">
-            {filtered.length === 0 ? (
+            {isLoading ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                style={{ padding: "64px 24px", textAlign: "center", color: textMuted }}
+              >
+                <RefreshCw size={24} className="animate-spin" style={{ marginBottom: 12, display: "block", margin: "0 auto 12px" }} />
+                <p style={{ fontSize: 14, fontWeight: 600 }}>Loading API keys...</p>
+              </motion.div>
+            ) : filtered.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -690,6 +832,8 @@ export function AdminApiKeysClient() {
                   key={entry.id}
                   entry={entry}
                   onDelete={deleteKey}
+                  onSetPrimary={setPrimaryKey}
+                  isPrimaryUpdating={primaryUpdatingId === entry.id}
                   isDark={isDark}
                   border={border}
                   surface={surface}
@@ -720,6 +864,23 @@ export function AdminApiKeysClient() {
             </span>
           </div>
         </div>
+
+        {requestError && (
+          <div style={{
+            marginTop: 12,
+            padding: "10px 14px",
+            background: isDark ? "rgba(239,68,68,0.08)" : "rgba(239,68,68,0.05)",
+            border: `1px solid ${isDark ? "rgba(239,68,68,0.2)" : "rgba(239,68,68,0.15)"}`,
+            color: "#ef4444",
+            fontSize: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}>
+            <AlertCircle size={13} />
+            {requestError}
+          </div>
+        )}
       </div>
 
       {/* ── MODAL ── */}
