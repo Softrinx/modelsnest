@@ -273,8 +273,12 @@ export function SettingsMain({ user }: SettingsMainProps) {
             <div style={{ fontSize: 11, color: muted, marginTop: 1 }}>Preferences & account</div>
           </div>
         </div>
-        <button
-          onClick={async () => { setLoadingLogout(true); await logoutUser() }}
+        {/* Logout */}
+        <button onClick={async () => { 
+          setLoadingLogout(true)
+          localStorage.removeItem("activeAccount")
+          await logoutUser()
+        }}
           disabled={loadingLogout}
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
             background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.22)",

@@ -32,15 +32,18 @@ async function requireAuthUser() {
   return { supabase, user, error: null as null }
 }
 
-export async function getUserTokens() {
+export async function getUserTokens(targetUserId?: string) {
   try {
     const { supabase, user, error: authError } = await requireAuthUser()
     if (authError || !user) return { success: false, error: authError, data: [] }
 
+    // Use targetUserId if provided (for team owner), otherwise use current user
+    const userId = targetUserId || user.id
+
     const { data, error } = await supabase
       .from("api_tokens")
       .select("id, name, token_prefix, last_used_at, created_at, expires_at, is_active")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -230,15 +233,18 @@ export async function deleteToken(formData: FormData) {
   }
 }
 
-export async function getUserIntegrations() {
+export async function getUserIntegrations(targetUserId?: string) {
   try {
     const { supabase, user, error: authError } = await requireAuthUser()
     if (authError || !user) return { success: false, error: authError, data: [] }
 
+    // Use targetUserId if provided (for team owner), otherwise use current user
+    const userId = targetUserId || user.id
+
     const { data, error } = await supabase
       .from("user_integrations")
       .select("id, integration_type, integration_name, external_account_id, is_active, created_at, updated_at")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
 
     if (error) {

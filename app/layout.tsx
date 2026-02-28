@@ -3,6 +3,7 @@ import { DM_Sans } from 'next/font/google'
 import { GeistMono } from 'geist/font/mono'
 import { StructuredData, OrganizationStructuredData } from '@/components/structured-data'
 import { ThemeProvider } from '@/contexts/themeContext'
+import { AccountProvider } from '@/contexts/accountContext'
 import './globals.css'
 
 export const dynamic = 'force-dynamic'
@@ -116,7 +117,9 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <ThemeProvider>
-          {children}
+          <AccountProvider>
+            {children}
+          </AccountProvider>
         </ThemeProvider>
       </body>
     </html>

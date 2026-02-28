@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useTheme } from "@/contexts/themeContext"
 import { useSidebar } from "@/components/dashboard-layout-controller"
+import { useAccount } from "@/contexts/accountContext"
 import { getUserTokens, getUserIntegrations } from "@/app/actions/api-tokens"
 import { generateUserId } from "@/lib/api-utils"
 import { ApiTokensList } from "@/components/api-tokens-list"
@@ -51,21 +52,26 @@ function Section({
 export function ApiTokensMain({ user }: ApiTokensMainProps) {
   const { isDark } = useTheme()
   const { sidebarWidth } = useSidebar()
+  const { isTeam, teamOwnerId } = useAccount()
   const [tokens, setTokens]             = useState<any[]>([])
   const [integrations, setIntegrations] = useState<any[]>([])
   const [loading, setLoading]           = useState(true)
 
   const refreshTokenData = async () => {
-    const t = await getUserTokens()
+    // Fetch team owner's tokens if in team mode, otherwise current user's tokens
+    const targetUserId = isTeam && teamOwnerId ? teamOwnerId : undefined
+    const t = await getUserTokens(targetUserId)
     setTokens(t.data ?? [])
   }
 
   useEffect(() => {
-    Promise.all([getUserTokens(), getUserIntegrations()])
+    // Fetch team owner's data if in team mode, otherwise current user's data
+    const targetUserId = isTeam && teamOwnerId ? teamOwnerId : undefined
+    Promise.all([getUserTokens(targetUserId), getUserIntegrations(targetUserId)])
       .then(([t, i]) => { setTokens(t.data ?? []); setIntegrations(i.data ?? []) })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [])
+  }, [isTeam, teamOwnerId])
 
   const userId  = generateUserId(user.email, user.id)
   const bg      = isDark ? "#0d0d10" : "#f8f8f6"

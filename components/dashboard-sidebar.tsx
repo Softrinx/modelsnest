@@ -6,7 +6,9 @@ import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { createPortal } from "react-dom"
 import { useTheme } from "@/contexts/themeContext"
+import { useAccount } from "@/contexts/accountContext"
 import { ModelsnestLogo, ModelsnestLogoCompact } from "@/components/Modelsnest-logo"
+import { AccountSwitcher } from "@/components/account-switcher"
 import {
   Bot, Cpu, Plug2, CreditCard, Bell, ShieldCheck, SlidersHorizontal,
   ChevronRight, Menu, X, Plus, Sun, Moon, User, Users,
@@ -152,10 +154,16 @@ function SidebarBody({ collapsed, user, credits, onClose }: {
   collapsed: boolean; user: DashboardUser; credits: Credits | null; onClose?: () => void
 }) {
   const { isDark, setMode } = useTheme()
+  const { isTeam, teamName } = useAccount()
   const pathname = usePathname()
   const bg     = isDark ? "#0d0d10" : "#ffffff"
   const border = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)"
   const muted  = isDark ? "#52525b" : "#a1a1aa"
+
+  // Display team name if in team mode, otherwise current user
+  const displayName = isTeam ? teamName : user.name
+  const displayEmail = isTeam ? "Team account" : user.email
+  const displayInitial = (isTeam ? teamName?.charAt(0) : user.name?.charAt(0))?.toUpperCase() ?? user.email[0].toUpperCase()
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: bg }}>
@@ -175,6 +183,13 @@ function SidebarBody({ collapsed, user, credits, onClose }: {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: collapsed ? "16px 14px" : "16px 12px", display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* Account Switcher */}
+        {!collapsed && (
+          <div style={{ paddingBottom: 12, borderBottom: `1px solid ${border}` }}>
+            <AccountSwitcher user={user} />
+          </div>
+        )}
+
         <div style={{ display: "flex", flexDirection: "column", gap: collapsed ? 8 : 4 }}>
           {!collapsed && (
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, opacity: 0.7, padding: "0 10px", marginBottom: 4 }}>
@@ -268,16 +283,16 @@ function SidebarBody({ collapsed, user, credits, onClose }: {
             fontSize: 14, fontWeight: 900, color: "#fff",
             boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 40%, transparent)",
           }}>
-            {user.name?.charAt(0).toUpperCase() ?? <User size={14} />}
+            {displayInitial}
           </div>
           {!collapsed && (
             <motion.div initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
               style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: isDark ? "#f4f4f5" : "#09090b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140 }}>
-                {user.name}
+                {displayName}
               </span>
               <span style={{ fontSize: 11, color: muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140 }}>
-                {user.email}
+                {displayEmail}
               </span>
             </motion.div>
           )}
@@ -289,6 +304,7 @@ function SidebarBody({ collapsed, user, credits, onClose }: {
 
 export function DashboardSidebar({ user, onSidebarToggle }: Props) {
   const { isDark } = useTheme()
+  const { isTeam, teamOwnerId } = useAccount()
   const [collapsed, setCollapsed]   = useState(false)
   const [isMobile, setIsMobile]     = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -308,9 +324,25 @@ export function DashboardSidebar({ user, onSidebarToggle }: Props) {
   useEffect(() => { setDrawerOpen(false) }, [pathname])
 
   useEffect(() => {
-    fetch("/api/user/credits").then(r => r.ok ? r.json() : null)
-      .then(d => d?.success && setCredits(d.credits)).catch(() => {})
-  }, [])
+    // Fetch credits for current account (personal or team owner)
+    if (isTeam && teamOwnerId) {
+      // Fetch team owner's credits
+      fetch(`/api/account/details?teamOwnerId=${teamOwnerId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (d?.success && d?.account?.credits !== undefined) {
+            setCredits({ balance: d.account.credits })
+          }
+        })
+        .catch(() => {})
+    } else {
+      // Fetch user's personal credits
+      fetch("/api/user/credits")
+        .then(r => r.ok ? r.json() : null)
+        .then(d => d?.success && setCredits(d.credits))
+        .catch(() => {})
+    }
+  }, [isTeam, teamOwnerId])
 
   return (
     <>
