@@ -10,8 +10,51 @@ function generateApiToken() {
   return `${TOKEN_PREFIX}${crypto.randomBytes(24).toString("hex")}`
 }
 
-function hashApiToken(token: string) {
-  return crypto.createHash("sha256").update(token).digest("hex")
+function getUserTokenEncryptionSecret(): string {
+  const secret = process.env.USER_API_TOKENS_ENCRYPTION_KEY || process.env.ADMIN_API_KEYS_ENCRYPTION_KEY
+  if (!secret) {
+    throw new Error("USER_API_TOKENS_ENCRYPTION_KEY is not set")
+  }
+  return secret
+}
+
+function deriveAesKey(secret: string): Buffer {
+  return crypto.createHash("sha256").update(secret).digest()
+}
+
+function encryptApiToken(token: string): string {
+  const iv = crypto.randomBytes(12)
+  const key = deriveAesKey(getUserTokenEncryptionSecret())
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv)
+  const encrypted = Buffer.concat([cipher.update(token, "utf8"), cipher.final()])
+  const authTag = cipher.getAuthTag()
+
+  return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted.toString("hex")}`
+}
+
+function decryptApiToken(payload: string): string {
+  const [ivHex, authTagHex, encryptedHex] = payload.split(":")
+  if (!ivHex || !authTagHex || !encryptedHex) {
+    throw new Error("Invalid encrypted token payload")
+  }
+
+  const iv = Buffer.from(ivHex, "hex")
+  const authTag = Buffer.from(authTagHex, "hex")
+  const encrypted = Buffer.from(encryptedHex, "hex")
+  const key = deriveAesKey(getUserTokenEncryptionSecret())
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv)
+  decipher.setAuthTag(authTag)
+
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8")
+}
+
+function isSameToken(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left)
+  const rightBuffer = Buffer.from(right)
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false
+  }
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer)
 }
 
 function getTokenPrefix(token: string) {
@@ -42,7 +85,7 @@ export async function getUserTokens(targetUserId?: string) {
 
     const { data, error } = await supabase
       .from("api_tokens")
-      .select("id, name, token_prefix, last_used_at, created_at, expires_at, is_active")
+      .select("id, name, token_prefix, token_encrypted, last_used_at, created_at, expires_at, is_active")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
 
@@ -53,7 +96,25 @@ export async function getUserTokens(targetUserId?: string) {
 
     return {
       success: true,
-      data: data ?? [],
+      data: (data ?? []).map((row) => {
+        let decrypted = ""
+        try {
+          decrypted = decryptApiToken(row.token_encrypted)
+        } catch {
+          decrypted = ""
+        }
+
+        return {
+          id: row.id,
+          name: row.name,
+          token: decrypted,
+          token_prefix: row.token_prefix,
+          last_used_at: row.last_used_at,
+          created_at: row.created_at,
+          expires_at: row.expires_at,
+          is_active: row.is_active,
+        }
+      }),
     }
   } catch (error) {
     console.error("Error getting tokens:", error)
@@ -78,7 +139,7 @@ export async function createApiToken(formData: FormData) {
 
     for (let attempt = 0; attempt < 3; attempt++) {
       const token = generateApiToken()
-      const tokenHash = hashApiToken(token)
+      const encryptedToken = encryptApiToken(token)
       const tokenPrefix = getTokenPrefix(token)
 
       const { data, error } = await supabase
@@ -86,7 +147,7 @@ export async function createApiToken(formData: FormData) {
         .insert({
           user_id: user.id,
           name,
-          token_hash: tokenHash,
+          token_encrypted: encryptedToken,
           token_prefix: tokenPrefix,
           is_active: true,
         })
@@ -148,13 +209,13 @@ export async function regenerateToken(formData: FormData) {
 
     for (let attempt = 0; attempt < 3; attempt++) {
       const token = generateApiToken()
-      const tokenHash = hashApiToken(token)
+      const encryptedToken = encryptApiToken(token)
       const tokenPrefix = getTokenPrefix(token)
 
       const { data, error } = await supabase
         .from("api_tokens")
         .update({
-          token_hash: tokenHash,
+          token_encrypted: encryptedToken,
           token_prefix: tokenPrefix,
           is_active: true,
           last_used_at: null,
@@ -268,18 +329,35 @@ export async function verifyApiToken(token: string) {
       return null
     }
 
-    const tokenHash = hashApiToken(token)
+    const tokenPrefix = getTokenPrefix(token)
     const supabaseAdmin = await createAdminClient()
 
-    const { data: tokenRow, error: tokenError } = await supabaseAdmin
+    const { data: tokenRows, error: tokenError } = await supabaseAdmin
       .from("api_tokens")
-      .select("id, user_id, name, last_used_at, expires_at, is_active")
-      .eq("token_hash", tokenHash)
+      .select("id, user_id, name, token_encrypted, last_used_at, expires_at, is_active")
+      .eq("token_prefix", tokenPrefix)
       .eq("is_active", true)
-      .maybeSingle()
+      .order("created_at", { ascending: false })
 
-    if (tokenError || !tokenRow) {
+    if (tokenError || !tokenRows || tokenRows.length === 0) {
       if (tokenError) console.error("Error verifying token:", tokenError)
+      return null
+    }
+
+    let tokenRow: (typeof tokenRows)[number] | null = null
+    for (const candidate of tokenRows) {
+      try {
+        const decrypted = decryptApiToken(candidate.token_encrypted)
+        if (isSameToken(decrypted, token)) {
+          tokenRow = candidate
+          break
+        }
+      } catch {
+        continue
+      }
+    }
+
+    if (!tokenRow) {
       return null
     }
 
@@ -320,7 +398,7 @@ export async function getFirstApiTokenForPlayground() {
 
     const { data: firstToken, error: tokenError } = await supabase
       .from("api_tokens")
-      .select("id")
+      .select("id, token_encrypted")
       .eq("user_id", user.id)
       .eq("is_active", true)
       .order("created_at", { ascending: true })
@@ -336,23 +414,12 @@ export async function getFirstApiTokenForPlayground() {
       return { success: false, error: "No API token found. Generate one first.", code: "NO_API_TOKENS" }
     }
 
-    const token = generateApiToken()
-    const tokenHash = hashApiToken(token)
-    const tokenPrefix = getTokenPrefix(token)
-
-    const { error: updateError } = await supabase
-      .from("api_tokens")
-      .update({
-        token_hash: tokenHash,
-        token_prefix: tokenPrefix,
-        is_active: true,
-      })
-      .eq("id", firstToken.id)
-      .eq("user_id", user.id)
-
-    if (updateError) {
-      console.error("Error rotating first token:", updateError)
-      return { success: false, error: "Failed to prepare API token", code: "TOKEN_ROTATE_FAILED" }
+    let token = ""
+    try {
+      token = decryptApiToken(firstToken.token_encrypted)
+    } catch (decryptError) {
+      console.error("Error decrypting first token:", decryptError)
+      return { success: false, error: "Failed to prepare API token", code: "TOKEN_DECRYPT_FAILED" }
     }
 
     return {

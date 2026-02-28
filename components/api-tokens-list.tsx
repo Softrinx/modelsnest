@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "@/contexts/themeContext"
-import { Eye, EyeOff, Copy, RotateCcw, Edit, Trash2, Check, ShieldCheck, ShieldOff } from "lucide-react"
+import { Eye, EyeOff, Copy, RotateCcw, Edit, Trash2, Check } from "lucide-react"
 import { maskToken, formatDate, copyToClipboard } from "@/lib/api-utils"
 import { regenerateToken, deleteToken } from "@/app/actions/api-tokens"
 import { TokenActionDialog } from "@/components/token-action-dialog"
@@ -11,6 +11,7 @@ import { TokenActionDialog } from "@/components/token-action-dialog"
 interface Token {
   id: string
   name: string
+  token: string
   token_prefix: string
   last_used_at: string | null
   created_at: string
@@ -65,19 +66,26 @@ export function ApiTokensList({ tokens, onTokensChanged }: ApiTokensListProps) {
   const [hovered,      setHovered]       = useState<string | null>(null)
 
   const bg      = isDark ? "#111114" : "#ffffff"
-  const surface = isDark ? "#0f0f12" : "#f8f8f6"
   const border  = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)"
   const text    = isDark ? "#f4f4f5" : "#09090b"
   const muted   = isDark ? "#52525b" : "#a1a1aa"
   const subtext = isDark ? "#71717a" : "#71717a"
 
   const toggleVisible = (id: string) => {
-    setVisible(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setVisible(s => {
+      const n = new Set(s)
+      if (n.has(id)) {
+        n.delete(id)
+      } else {
+        n.add(id)
+      }
+      return n
+    })
   }
 
-  const handleCopy = async (prefix: string, id: string) => {
+  const handleCopy = async (tokenValue: string, id: string) => {
     try {
-      await copyToClipboard(prefix)
+      await copyToClipboard(tokenValue)
       setCopied(s => new Set(s).add(id))
       setTimeout(() => setCopied(s => { const n = new Set(s); n.delete(id); return n }), 2000)
     } catch (e) { console.error(e) }
@@ -155,7 +163,7 @@ export function ApiTokensList({ tokens, onTokensChanged }: ApiTokensListProps) {
                   fontFamily: "monospace", fontSize: 13, color: text, letterSpacing: "0.02em",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}>
-                  {isVis ? token.token_prefix : maskToken(token.token_prefix)}
+                  {isVis ? token.token : maskToken(token.token)}
                 </span>
                 {token.name && (
                   <span style={{
@@ -192,7 +200,7 @@ export function ApiTokensList({ tokens, onTokensChanged }: ApiTokensListProps) {
                 {isVis ? <EyeOff size={13} /> : <Eye size={13} />}
               </IconBtn>
 
-              <IconBtn title="Copy token" onClick={() => handleCopy(token.token_prefix, token.id)}>
+              <IconBtn title="Copy token" onClick={() => handleCopy(token.token, token.id)}>
                 <AnimatePresence mode="wait" initial={false}>
                   {isCopied
                     ? <motion.div key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>

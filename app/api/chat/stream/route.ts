@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     // Get API key from environment variables
     const apiKey = (await getActiveProviderApiKey("novita")) || process.env.NOVITA_API_KEY
     if (!apiKey) {
-      return new Response("No active Novita key found in admin_api_keys and NOVITA_API_KEY is not set", {
+      return new Response("No primary Novita key found in admin_api_keys and NOVITA_API_KEY is not set", {
         status: 500,
       })
     }

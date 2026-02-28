@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL DEFAULT 'Default API token',
-  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  token_encrypted TEXT NOT NULL,
   token_prefix VARCHAR(16) NOT NULL,
   last_used_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS api_tokens (
 
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_token_prefix ON api_tokens(token_prefix);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_active ON api_tokens(is_active);
 
 -- Create integrations table for third-party connections
