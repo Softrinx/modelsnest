@@ -284,6 +284,83 @@ function InviteModal({ onClose, onAdd, surface, border, text, muted, isDark }: {
   )
 }
 
+// ─── Delete Confirm Modal ─────────────────────────────────────────────────────
+function DeleteConfirmModal({ teamName, onConfirm, onCancel, surface, border, text, muted, isDark, isDeleting }: {
+  teamName: string; onConfirm: () => void; onCancel: () => void
+  surface: string; border: string; text: string; muted: string; isDark: boolean
+  isDeleting: boolean
+}) {
+  const [confirmText, setConfirmText] = useState("")
+  const canDelete = confirmText === teamName
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-end",
+        justifyContent: "center", background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)" }}
+      onClick={e => { if (e.target === e.currentTarget && !isDeleting) onCancel() }}>
+      <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 32, stiffness: 300 }}
+        style={{ width: "100%", maxWidth: 560, background: surface, borderRadius: "14px 14px 0 0", overflow: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)" }} />
+        </div>
+        <div style={{ padding: "16px 24px 14px", display: "flex", alignItems: "center", justifyContent: "space-between",
+          borderBottom: `1px solid ${border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8,
+              background: "rgba(239,68,68,0.14)",
+              display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <AlertTriangle size={16} style={{ color: "#ef4444" }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: text, letterSpacing: "-0.03em" }}>Delete team</div>
+              <div style={{ fontSize: 12, color: muted }}>This action cannot be undone</div>
+            </div>
+          </div>
+          <button onClick={onCancel} disabled={isDeleting} style={{ background: "transparent", border: "none", cursor: isDeleting ? "not-allowed" : "pointer", color: muted, padding: 4, opacity: isDeleting ? 0.6 : 1 }}>
+            <X size={15} />
+          </button>
+        </div>
+        <div style={{ padding: "20px 24px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <p style={{ fontSize: 13, color: muted, lineHeight: 1.7, margin: "0 0 12px 0" }}>
+              To confirm deletion, please type the team name <span style={{ fontWeight: 600, color: text }}>"{teamName}"</span> below:
+            </p>
+            <input value={confirmText} onChange={e => setConfirmText(e.target.value)} disabled={isDeleting}
+              placeholder={teamName}
+              style={{ width: "100%", height: 42, padding: "0 12px", background: "transparent",
+                border: `1px solid ${border}`, outline: "none", fontSize: 14, color: text, fontFamily: "inherit",
+                borderRadius: 8, boxSizing: "border-box", opacity: isDeleting ? 0.6 : 1, cursor: isDeleting ? "not-allowed" : "text" }} />
+          </div>
+          <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.08)", borderRadius: 8,
+            border: "1px solid rgba(239,68,68,0.2)", display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <AlertTriangle size={15} style={{ color: "#ef4444", flexShrink: 0, marginTop: 1 }} />
+            <div style={{ fontSize: 12, color: muted, lineHeight: 1.6 }}>
+              All team members and associated data will be permanently deleted. Consider notifying team members before deleting.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <motion.button onClick={onCancel} disabled={isDeleting} whileTap={{ scale: 0.97 }}
+              style={{ flex: 1, padding: "12px", background: "transparent", border: `1px solid ${border}`,
+                borderRadius: 8, color: muted, fontSize: 13, fontWeight: 600, cursor: isDeleting ? "not-allowed" : "pointer",
+                opacity: isDeleting ? 0.6 : 1 }}>
+              Cancel
+            </motion.button>
+            <motion.button onClick={onConfirm} disabled={!canDelete || isDeleting} whileTap={{ scale: 0.97 }}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px",
+                background: canDelete ? "#ef4444" : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"),
+                border: "none", color: canDelete ? "#fff" : muted, borderRadius: 8,
+                fontSize: 13, fontWeight: 700, cursor: canDelete && !isDeleting ? "pointer" : "not-allowed",
+                opacity: (canDelete && !isDeleting) ? 1 : 0.6, transition: "background 0.2s" }}>
+              {isDeleting ? <><Check size={14} /> Deleting…</> : <><Trash2 size={14} /> Delete team</>}
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ─── Member Card ──────────────────────────────────────────────────────────────
 function MemberCard({ member, onRoleChange, onRemove, onToggleAccess, onToggleSuspend, canManage, isDark, card, border, text, muted, subtle }: {
   member: Member; onRoleChange: (id: string, r: Role) => void
@@ -867,6 +944,8 @@ function TeamDetailView({ team, onBack, supabase, user, canManage, onRefreshTeam
   const [tab, setTab]               = useState<"members" | "invites" | "permissions">("members")
   const [showInvite, setShowInvite] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const filtered = members.filter(m => {
     const matchSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase())
@@ -1039,6 +1118,30 @@ function TeamDetailView({ team, onBack, supabase, user, canManage, onRefreshTeam
     setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000)
   }
 
+  const handleDeleteTeam = async () => {
+    setIsDeleting(true)
+    try {
+      const { deleteTeam } = await import("@/app/actions/team")
+      const result = await deleteTeam(team.id)
+      
+      if (result.success) {
+        // Close modal and refresh teams list
+        setShowDeleteConfirm(false)
+        await onRefreshTeams()
+        // Navigate back to teams list
+        onBack()
+      } else {
+        // Handle error
+        setMemberError(result.error || "Failed to delete team")
+        setIsDeleting(false)
+      }
+    } catch (error) {
+      console.error("Error deleting team:", error)
+      setMemberError("An unexpected error occurred")
+      setIsDeleting(false)
+    }
+  }
+
   const pc = PLAN_CFG[team.plan]
   const TABS = [
     { id: "members",     label: "Members",    count: members.length },
@@ -1083,6 +1186,18 @@ function TeamDetailView({ team, onBack, supabase, user, canManage, onRefreshTeam
               {copiedLink ? <Check size={12} style={{ color: "#10b981" }} /> : <Copy size={12} />}
               {copiedLink ? "Copied!" : "Copy link"}
             </button>
+            {team.role === "owner" && (
+              <button onClick={() => setShowDeleteConfirm(true)} disabled={isDeleting}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px",
+                  fontSize: 12, fontWeight: 600, background: "transparent",
+                  border: "1px solid rgba(239,68,68,0.4)", borderRadius: 8, color: "#ef4444",
+                  cursor: isDeleting ? "not-allowed" : "pointer", opacity: isDeleting ? 0.6 : 1, transition: "all 0.15s" }}
+                onMouseEnter={e => { if (!isDeleting) { e.currentTarget.style.borderColor = "#ef4444"; e.currentTarget.style.background = "rgba(239,68,68,0.08)" } }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(239,68,68,0.4)"; e.currentTarget.style.background = "transparent" }}>
+                <Trash2 size={12} />
+                {isMobile ? "Delete" : "Delete team"}
+              </button>
+            )}
             <button onClick={() => canManage && setShowInvite(true)} disabled={!canManage}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
                 fontSize: 13, fontWeight: 700, background: "var(--color-primary)", color: "#fff",
@@ -1338,6 +1453,13 @@ function TeamDetailView({ team, onBack, supabase, user, canManage, onRefreshTeam
         {showInvite && (
           <InviteModal onClose={() => setShowInvite(false)} onAdd={addInvite}
             surface={card} border={border} text={text} muted={muted} isDark={isDark} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <DeleteConfirmModal teamName={team.name} onConfirm={handleDeleteTeam} onCancel={() => setShowDeleteConfirm(false)}
+            surface={card} border={border} text={text} muted={muted} isDark={isDark} isDeleting={isDeleting} />
         )}
       </AnimatePresence>
     </motion.div>

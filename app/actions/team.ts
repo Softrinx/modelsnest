@@ -1,6 +1,8 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
+import { requireAuth } from "@/lib/auth"
 
 export type AuthUserSummary = {
   id: string
@@ -95,4 +97,54 @@ export async function getAuthUsersByEmails(emails: string[]): Promise<AuthUserSu
       name: null,
     }
   )
+}
+
+export async function deleteTeam(teamId: string) {
+  try {
+    const user = await requireAuth()
+    const supabase = await createAdminClient()
+
+    // Verify team exists and user is the owner
+    const { data: team, error: teamError } = await supabase
+      .from("teams")
+      .select("id, owner_id")
+      .eq("id", teamId)
+      .single()
+
+    if (teamError || !team) {
+      return { success: false, error: "Team not found" }
+    }
+
+    // Only the owner can delete the team
+    if (team.owner_id !== user.id) {
+      return { success: false, error: "Only the team owner can delete the team" }
+    }
+
+    // Delete all team members first (cascade delete)
+    const { error: membersError } = await supabase
+      .from("team_members")
+      .delete()
+      .eq("team_id", teamId)
+
+    if (membersError) {
+      console.error("Error deleting team members:", membersError)
+      return { success: false, error: "Failed to remove team members" }
+    }
+
+    // Delete the team
+    const { error: deleteError } = await supabase
+      .from("teams")
+      .delete()
+      .eq("id", teamId)
+
+    if (deleteError) {
+      console.error("Error deleting team:", deleteError)
+      return { success: false, error: "Failed to delete team" }
+    }
+
+    return { success: true, message: "Team deleted successfully" }
+  } catch (error) {
+    console.error("Error in deleteTeam:", error)
+    return { success: false, error: "An unexpected error occurred" }
+  }
 }
