@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server"
-import { NovitaAI } from "@/lib/chat-api"
+import { ModelslabAI } from "@/lib/chat-api"
 import { requireAuth } from "@/lib/auth"
 import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
 
@@ -11,14 +11,14 @@ export async function POST(request: NextRequest) {
     const { messages, model } = await request.json()
 
     // Get API key from environment variables
-    const apiKey = (await getActiveProviderApiKey("novita")) || process.env.NOVITA_API_KEY
+    const apiKey = (await getActiveProviderApiKey("models_lab")) || process.env.MODELSLAB_API_KEY
     if (!apiKey) {
-      return new Response("No primary Novita key found in admin_api_keys and NOVITA_API_KEY is not set", {
+      return new Response("No primary ModelsLab key found in admin_api_keys and MODELSLAB_API_KEY is not set", {
         status: 500,
       })
     }
 
-    const client = new NovitaAI(apiKey)
+    const client = new ModelslabAI(apiKey)
 
     // Create streaming response
     const stream = await client.createStreamingChatCompletion({

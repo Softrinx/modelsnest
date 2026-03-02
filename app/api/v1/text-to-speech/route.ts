@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/server"
 import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
 import { checkRateLimit } from "@/lib/rate-limit"
 
-const PROVIDER_BASE_URL = process.env.NOVITA_BASE_URL || "https://api.novita.ai/openai"
+const PROVIDER_BASE_URL = process.env.MODELSLAB_BASE_URL || "https://modelslab.com"
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,13 +65,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const providerApiKey = (await getActiveProviderApiKey("novita")) || process.env.NOVITA_API_KEY
+    const providerApiKey = (await getActiveProviderApiKey("models_lab")) || process.env.MODELSLAB_API_KEY
     if (!providerApiKey) {
       return NextResponse.json(
         {
           error: "Server misconfiguration",
-          code: "NOVITA_API_KEY_MISSING",
-          message: "No primary Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
+          code: "MODELSLAB_API_KEY_MISSING",
+          message: "No primary ModelsLab key found in admin_api_keys and MODELSLAB_API_KEY is not set",
         },
         { status: 500 },
       )

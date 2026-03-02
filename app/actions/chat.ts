@@ -1,6 +1,6 @@
 "use server"
 
-import { NovitaAI, type ChatMessage } from "@/lib/chat-api"
+import { ModelslabAI, type ChatMessage } from "@/lib/chat-api"
 import { createClient } from "@/lib/supabase/server"
 
 // Supabase auth helper
@@ -20,12 +20,12 @@ export async function sendChatMessage(messages: ChatMessage[]) {
     // Ensure user is authenticated
     await requireAuth()
 
-    const apiKey = process.env.NOVITA_API_KEY
+    const apiKey = process.env.MODELSLAB_API_KEY
     if (!apiKey) {
-      throw new Error("NOVITA_API_KEY environment variable is not set")
+      throw new Error("MODELSLAB_API_KEY environment variable is not set")
     }
 
-    const client = new NovitaAI(apiKey)
+    const client = new ModelslabAI(apiKey)
 
     const response = await client.createChatCompletion({
       model: "deepseek/deepseek-v3-0324",
