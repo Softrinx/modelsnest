@@ -1,41 +1,51 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Plus, Copy, Check } from "lucide-react"
+import { Plus, Copy, Check, Key, AlertCircle } from "lucide-react"
 import { useState } from "react"
 import { createApiToken } from "@/app/actions/api-tokens"
+import { useTheme } from "@/contexts/themeContext"
 
 interface CreateTokenDialogProps {
   onTokenCreated?: () => void | Promise<void>
 }
 
 export function CreateTokenDialog({ onTokenCreated }: CreateTokenDialogProps) {
-  const [open, setOpen] = useState(false)
+  const { isDark } = useTheme()
+  const [open, setOpen]             = useState(false)
   const [isCreating, setIsCreating] = useState(false)
-  const [newToken, setNewToken] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [newToken, setNewToken]     = useState<string | null>(null)
+  const [copied, setCopied]         = useState(false)
+  const [error, setError]           = useState<string | null>(null)
 
-  const handleSubmit = async (formData: FormData) => {
+  // ── Theme tokens ────────────────────────────────────────────────────────────
+  const bg     = isDark ? "#0d0d10"               : "#ffffff"
+  const card   = isDark ? "#111114"               : "#f8f8f6"
+  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.09)"
+  const text   = isDark ? "#f4f4f5"               : "#09090b"
+  const muted  = isDark ? "#71717a"               : "#71717a"
+  const subtle = isDark ? "#52525b"               : "#a1a1aa"
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     setIsCreating(true)
+    setError(null)
     try {
+      const formData = new FormData(e.currentTarget)
       const result = await createApiToken(formData)
       if (result.success && typeof result.token === "string") {
         setNewToken(result.token)
         await onTokenCreated?.()
+      } else {
+        setError((result.error as string) ?? "Failed to create token")
       }
-    } catch (error) {
-      console.error("Failed to create token:", error)
-      alert("Failed to create token")
+    } catch (err) {
+      console.error("Failed to create token:", err)
+      setError("Unexpected error. Please try again.")
     } finally {
       setIsCreating(false)
     }
@@ -43,99 +53,259 @@ export function CreateTokenDialog({ onTokenCreated }: CreateTokenDialogProps) {
 
   const handleClose = () => {
     setOpen(false)
-    setNewToken(null)
-    setCopied(false)
+    setTimeout(() => {
+      setNewToken(null)
+      setCopied(false)
+      setError(null)
+    }, 200)
   }
 
   const handleCopy = async () => {
-    if (newToken) {
-      await navigator.clipboard.writeText(newToken)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
+    if (!newToken) return
+    await navigator.clipboard.writeText(newToken)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-          <Button className="bg-gradient-to-r from-[#8C5CF7] to-[#C85CFA] hover:from-[#7C4CF7] hover:to-[#B84CFA] text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200">
-            <Plus className="w-4 h-4 mr-2" />
-            Create a new token
-          </Button>
-        </DialogTrigger>
-      <DialogContent className="bg-[#1A1B1F] border-[#2D2D32] shadow-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-[#8C5CF7] via-[#C85CFA] to-[#5567F7] bg-clip-text text-transparent">
-            Create new API token
-          </DialogTitle>
-          <DialogDescription className="text-[#A0A0A8] text-base">
-            Create a new API token to access your account programmatically.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogTrigger asChild>
+        <button
+          style={{
+            display: "flex", alignItems: "center", gap: 7,
+            padding: "0 16px", height: 38,
+            background: "var(--color-primary)",
+            border: "none", borderRadius: 4,
+            color: "#fff", fontSize: 12, fontWeight: 700,
+            cursor: "pointer", letterSpacing: "-0.01em",
+            boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 35%, transparent)",
+            transition: "opacity 0.15s",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+          onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+        >
+          <Plus size={14} />
+          Create token
+        </button>
+      </DialogTrigger>
 
-        {newToken ? (
-          <div className="space-y-4">
-            <div className="p-4 bg-[#0D0D0F] border border-[#00ff88]/20 rounded-lg">
-              <h4 className="text-[#00ff88] font-semibold mb-2 flex items-center gap-2">
-                <div className="w-2 h-2 bg-[#00ff88] rounded-full"></div>
-                Token created successfully!
-              </h4>
-              <p className="text-sm text-[#A0A0A8] mb-3">
-                Please copy your new token now. You won't be able to see it again!
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 p-3 bg-[#0D0D0F] border border-[#2D2D32] rounded-lg text-sm font-mono text-[#E0E0E8] break-all">
-                  {newToken}
-                </code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopy}
-                  className="border-[#00ff88]/30 text-[#00ff88] hover:bg-[#00ff88]/10 hover:border-[#00ff88]/50 transition-colors duration-200"
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-            <Button 
-              onClick={handleClose} 
-              className="w-full bg-gradient-to-r from-[#8C5CF7] to-[#C85CFA] hover:from-[#7C4CF7] hover:to-[#B84CFA] text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              Done
-            </Button>
+      <DialogContent style={{
+        background: bg,
+        border: `1px solid ${border}`,
+        borderRadius: 4,
+        padding: 0,
+        maxWidth: 440,
+        width: "95vw",
+        overflow: "hidden",
+        boxShadow: isDark
+          ? "0 24px 64px rgba(0,0,0,0.7)"
+          : "0 24px 64px rgba(0,0,0,0.12)",
+      }}>
+
+        {/* Header */}
+        <div style={{
+          padding: "20px 24px",
+          borderBottom: `1px solid ${border}`,
+          display: "flex", alignItems: "center", gap: 12,
+          background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+        }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 4, flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "color-mix(in srgb, var(--color-primary) 14%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-primary) 25%, transparent)",
+          }}>
+            <Key size={14} style={{ color: "var(--color-primary)" }} />
           </div>
-        ) : (
-          <form action={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="name" className="text-[#E0E0E8] font-medium">
-                Token name (optional)
-              </Label>
-              <Input
-                id="name"
-                name="name"
-                placeholder="My API token"
-                className="bg-[#0D0D0F] border-[#2D2D32] text-[#E0E0E8] placeholder-[#6B6B7A] focus:border-[#8C5CF7] focus:ring-[#8C5CF7]/20 transition-colors duration-200"
-              />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: text, letterSpacing: "-0.03em" }}>
+              {newToken ? "Token created" : "New API token"}
             </div>
-            <div className="flex gap-3">
-              <Button
-                type="button"
-                variant="outline"
+            <div style={{ fontSize: 11, color: muted, marginTop: 1 }}>
+              {newToken
+                ? "Copy your token — it won't be shown again"
+                : "Generate a personal API token for programmatic access"}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: "24px" }}>
+
+          {/* ── SUCCESS STATE ── */}
+          {newToken ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+              {/* Token display */}
+              <div style={{
+                border: "1px solid color-mix(in srgb, #10b981 30%, transparent)",
+                borderRadius: 4, overflow: "hidden",
+                background: isDark ? "rgba(16,185,129,0.05)" : "rgba(16,185,129,0.04)",
+              }}>
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "8px 14px",
+                  borderBottom: "1px solid color-mix(in srgb, #10b981 20%, transparent)",
+                  background: isDark ? "rgba(16,185,129,0.07)" : "rgba(16,185,129,0.06)",
+                }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#10b981" }}>Token ready</span>
+                </div>
+                <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <code style={{
+                    flex: 1, fontSize: 11, fontFamily: "monospace",
+                    color: text, wordBreak: "break-all", lineHeight: 1.6,
+                    minWidth: 0,
+                  }}>
+                    {newToken}
+                  </code>
+                  <button
+                    onClick={handleCopy}
+                    title="Copy token"
+                    style={{
+                      flexShrink: 0, width: 30, height: 30,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: copied
+                        ? "rgba(16,185,129,0.12)"
+                        : isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                      border: `1px solid ${copied ? "rgba(16,185,129,0.4)" : border}`,
+                      borderRadius: 4, cursor: "pointer", transition: "all 0.15s",
+                    }}
+                  >
+                    {copied
+                      ? <Check size={13} style={{ color: "#10b981" }} />
+                      : <Copy size={13} style={{ color: muted }} />}
+                  </button>
+                </div>
+              </div>
+
+              <p style={{ fontSize: 11, color: muted, lineHeight: 1.6, margin: 0 }}>
+                Store this token securely. We cannot display it again after you close this dialog.
+              </p>
+
+              <button
                 onClick={handleClose}
-                className="flex-1 border-[#2D2D32] text-[#A0A0A8] bg-transparent hover:bg-[#2D2D32] hover:text-white hover:border-[#3D3D42] transition-colors duration-200"
+                style={{
+                  width: "100%", padding: "11px",
+                  background: "var(--color-primary)", border: "none",
+                  borderRadius: 4, fontSize: 13, fontWeight: 700,
+                  color: "#fff", cursor: "pointer", transition: "opacity 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
               >
-                Cancel
-              </Button>
-                             <Button 
-                 type="submit" 
-                 disabled={isCreating} 
-                 className="flex-1 bg-gradient-to-r from-[#8C5CF7] to-[#C85CFA] hover:from-[#7C4CF7] hover:to-[#B84CFA] text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-               >
-                 {isCreating ? "Creating..." : "Create token"}
-               </Button>
+                Done
+              </button>
             </div>
-          </form>
-        )}
+
+          ) : (
+            /* ── CREATE FORM ── */
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label
+                  htmlFor="name"
+                  style={{ fontSize: 11, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: "0.07em" }}
+                >
+                  Token name{" "}
+                  <span style={{ color: subtle, fontWeight: 400, textTransform: "none" }}>(optional)</span>
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  placeholder="e.g. Production server"
+                  maxLength={255}
+                  style={{
+                    width: "100%", height: 40, padding: "0 12px",
+                    background: card,
+                    border: `1px solid ${border}`,
+                    borderRadius: 4, fontSize: 13, color: text,
+                    outline: "none", boxSizing: "border-box",
+                    transition: "border-color 0.15s",
+                  }}
+                  onFocus={e => (e.currentTarget.style.borderColor = "var(--color-primary)")}
+                  onBlur={e => (e.currentTarget.style.borderColor = border)}
+                />
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "9px 12px",
+                  background: "rgba(239,68,68,0.08)",
+                  border: "1px solid rgba(239,68,68,0.2)",
+                  borderRadius: 4,
+                }}>
+                  <AlertCircle size={13} style={{ color: "#ef4444", flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: "#ef4444" }}>{error}</span>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  style={{
+                    flex: 1, padding: "10px",
+                    background: "transparent",
+                    border: `1px solid ${border}`,
+                    borderRadius: 4, fontSize: 13, fontWeight: 600,
+                    color: muted, cursor: "pointer", transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = "var(--color-primary)"
+                    e.currentTarget.style.color = text
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = border
+                    e.currentTarget.style.color = muted
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  style={{
+                    flex: 1, padding: "10px",
+                    background: isCreating
+                      ? "color-mix(in srgb, var(--color-primary) 55%, transparent)"
+                      : "var(--color-primary)",
+                    border: "none", borderRadius: 4,
+                    fontSize: 13, fontWeight: 700,
+                    color: "#fff",
+                    cursor: isCreating ? "not-allowed" : "pointer",
+                    transition: "all 0.15s",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  }}
+                >
+                  {isCreating ? (
+                    <>
+                      <span style={{
+                        width: 12, height: 12, borderRadius: "50%",
+                        border: "2px solid rgba(255,255,255,0.3)",
+                        borderTopColor: "#fff",
+                        animation: "ctd-spin 0.7s linear infinite",
+                        display: "inline-block",
+                      }} />
+                      Creating…
+                    </>
+                  ) : (
+                    <>
+                      <Key size={12} />
+                      Create token
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <style>{`@keyframes ctd-spin { to { transform: rotate(360deg) } }`}</style>
+            </form>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   )
