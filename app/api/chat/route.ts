@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { NovitaAI } from "@/lib/chat-api"
+import { ModelslabAI } from "@/lib/chat-api"
 import { verifyApiToken } from "@/app/actions/api-tokens"
 import { createAdminClient } from "@/lib/supabase/server"
 import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
@@ -65,13 +65,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const apiKey = (await getActiveProviderApiKey("novita")) || process.env.NOVITA_API_KEY
+    const apiKey = (await getActiveProviderApiKey("models_lab")) || process.env.MODELSLAB_API_KEY
     if (!apiKey) {
       return NextResponse.json(
         {
           error: "Server misconfiguration",
-          code: "NOVITA_API_KEY_MISSING",
-          message: "No primary Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
+          code: "MODELSLAB_API_KEY_MISSING",
+          message: "No primary ModelsLab key found in admin_api_keys and MODELSLAB_API_KEY is not set",
         },
         { status: 500 },
       )
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const client = new NovitaAI(apiKey)
+    const client = new ModelslabAI(apiKey)
 
     const completion = await client.createChatCompletion({
       model: requestedModelSlug,

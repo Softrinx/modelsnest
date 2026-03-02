@@ -31,9 +31,9 @@ export interface ChatCompletionResponse {
   }
 }
 
-export class NovitaAI {
+export class ModelslabAI {
   private apiKey: string
-  private baseUrl = "https://api.novita.ai/openai"
+  private baseUrl = process.env.MODELSLAB_BASE_URL || "https://modelslab.com"
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
@@ -82,3 +82,5 @@ export class NovitaAI {
     return response.body!
   }
 }
+
+export const NovitaAI = ModelslabAI
