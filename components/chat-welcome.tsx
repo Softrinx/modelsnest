@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { Send, Zap, Cpu, Paperclip, Search, Lightbulb, Flame, FileText, Target, Sparkles } from "lucide-react"
+import { Zap, Cpu, Search, Lightbulb, Flame, FileText, Target, Sparkles } from "lucide-react"
 import { ModelsnestLogo } from "@/components/Modelsnest-logo"
 import { useTheme } from "@/contexts/themeContext"
 import type { DashboardUser } from "@/types/dashboard-user"
@@ -13,18 +12,17 @@ interface ChatWelcomeProps {
   disabled?: boolean
 }
 
-export function ChatWelcome({ user, onSuggestion, onSendMessage, disabled = false }: ChatWelcomeProps) {
+export function ChatWelcome({ user, onSuggestion, disabled = false }: ChatWelcomeProps) {
   const { isDark } = useTheme()
-  const [message, setMessage] = useState("")
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const bg       = isDark ? "#0D0D0F" : "#f8f8f6"
-  const card     = isDark ? "#1A1B1F" : "#ffffff"
-  const border   = isDark ? "#202126" : "#e2e2e0"
-  const text     = isDark ? "#ffffff" : "#0a0a0b"
-  const muted    = isDark ? "#A0A0A8" : "#71717a"
-  const chipBg   = isDark ? "#202126" : "#f0f0ee"
-  const chipText = isDark ? "#A0A0A8" : "#52525b"
+  // Match exact tokens from DashboardChatInterface
+  const bg      = isDark ? "#0a0a0c" : "#f5f5f3"
+  const card    = isDark ? "#111114" : "#ffffff"
+  const border  = isDark ? "#232329" : "#e0e0de"
+  const text    = isDark ? "#f0f0f2" : "#111113"
+  const muted   = isDark ? "#6b6b78" : "#888890"
+  const chipBg  = isDark ? "#18181c" : "#f0f0ee"
+  const chipText = isDark ? "#6b6b78" : "#888890"
 
   const quickActions = [
     { title: "Think Bigger",      icon: <Sparkles  className="w-3.5 h-3.5" />, prompt: "Help me think beyond conventional boundaries and explore innovative solutions" },
@@ -40,41 +38,17 @@ export function ChatWelcome({ user, onSuggestion, onSendMessage, disabled = fals
     { icon: <Target className="w-5 h-5" />, title: "Intuition Meets Intelligence", description: "Enjoy human-like, intuitive interactions with AI that processes ideas and thinks faster than any human." },
   ]
 
-  const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault()
-    if (message.trim() && !disabled) { onSendMessage(message.trim()); setMessage("") }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit() }
-  }
-
-  // Auto-grow textarea
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value)
-    const ta = textareaRef.current
-    if (ta) { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 160) + "px" }
-  }
-
   return (
     <div style={{
-      minHeight: "100%", background: bg,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "32px 16px", textAlign: "center",
+      minHeight: "100%",
+      background: bg,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "48px 16px 180px", // bottom padding so floating input doesn't overlap
+      textAlign: "center",
     }}>
-
-      {/* Light mode textarea override */}
-      {!isDark && (
-        <style>{`
-          textarea {
-            background-color: transparent !important;
-            color: #0a0a0b !important;
-            border: none !important;
-            outline: none !important;
-          }
-          textarea::placeholder { color: #a1a1aa !important; }
-        `}</style>
-      )}
 
       {/* Logo */}
       <div style={{ marginBottom: 20 }}>
@@ -95,101 +69,55 @@ export function ChatWelcome({ user, onSuggestion, onSendMessage, disabled = fals
         </p>
       </div>
 
-      {/* Chat input box — textarea, auto-grows */}
-      <div style={{ width: "100%", maxWidth: 680, marginBottom: 40 }}>
-        <form onSubmit={handleSubmit}>
-          <div style={{
-            background: card, border: `1px solid ${border}`, borderRadius: 16, padding: "16px",
-            boxShadow: isDark ? "0 8px 32px rgba(0,0,0,0.4)" : "0 8px 32px rgba(0,0,0,0.07)",
-          }}>
-            {/* Textarea row */}
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 12 }}>
-              <button type="button" style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: muted, flexShrink: 0, marginBottom: 2 }}>
-                <Paperclip className="w-4 h-4" />
-              </button>
-
-              {/* TEXTAREA — not input */}
-              <textarea
-                ref={textareaRef}
-                value={message}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask Anything..."
-                disabled={disabled}
-                rows={1}
-                style={{
-                  flex: 1, background: "transparent", border: "none", outline: "none", resize: "none",
-                  fontSize: 15, fontWeight: 500, color: text, lineHeight: 1.6,
-                  minWidth: 0, overflowY: "hidden", fontFamily: "inherit",
-                }}
-              />
-
-              <button
-                type="submit"
-                disabled={!message.trim() || disabled}
-                style={{
-                  background: "linear-gradient(135deg, #8C5CF7, #3B1F82)",
-                  border: "none", borderRadius: 10, padding: "8px 10px",
-                  cursor: message.trim() && !disabled ? "pointer" : "not-allowed",
-                  opacity: !message.trim() || disabled ? 0.4 : 1,
-                  flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                  marginBottom: 2,
-                }}
-              >
-                <Send className="w-4 h-4" style={{ color: "#fff" }} />
-              </button>
-            </div>
-
-            {/* Divider */}
-            <div style={{ height: 1, background: border, marginBottom: 12 }} />
-
-            {/* Quick action chips */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {quickActions.map(action => (
-                <button
-                  key={action.title}
-                  type="button"
-                  onClick={() => onSuggestion(action.prompt)}
-                  disabled={disabled}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "6px 12px", fontSize: 12, fontWeight: 600,
-                    background: chipBg, color: chipText,
-                    border: `1px solid ${border}`, borderRadius: 8,
-                    cursor: disabled ? "not-allowed" : "pointer",
-                    transition: "all 0.15s",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = "color-mix(in srgb, var(--color-primary) 12%, transparent)"
-                    e.currentTarget.style.borderColor = "color-mix(in srgb, var(--color-primary) 40%, transparent)"
-                    e.currentTarget.style.color = "var(--color-primary)"
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = chipBg
-                    e.currentTarget.style.borderColor = border
-                    e.currentTarget.style.color = chipText
-                  }}
-                >
-                  <span style={{ color: "var(--color-primary)" }}>{action.icon}</span>
-                  {action.title}
-                </button>
-              ))}
-            </div>
-          </div>
-        </form>
+      {/* Quick action chips */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 680, marginBottom: 48 }}>
+        {quickActions.map(action => (
+          <button
+            key={action.title}
+            type="button"
+            onClick={() => onSuggestion(action.prompt)}
+            disabled={disabled}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 14px", fontSize: 12, fontWeight: 600,
+              background: chipBg, color: chipText,
+              border: `1px solid ${border}`, borderRadius: 8,
+              cursor: disabled ? "not-allowed" : "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "color-mix(in srgb, var(--color-primary) 12%, transparent)"
+              e.currentTarget.style.borderColor = "color-mix(in srgb, var(--color-primary) 40%, transparent)"
+              e.currentTarget.style.color = "var(--color-primary)"
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = chipBg
+              e.currentTarget.style.borderColor = border
+              e.currentTarget.style.color = chipText
+            }}
+          >
+            <span style={{ color: "var(--color-primary)" }}>{action.icon}</span>
+            {action.title}
+          </button>
+        ))}
       </div>
 
-      {/* Feature cards — gap-px grid */}
+      {/* Feature cards */}
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-        gap: 1, width: "100%", maxWidth: 860,
-        background: border, border: `1px solid ${border}`,
-        borderRadius: 16, overflow: "hidden",
+        gap: 1,
+        width: "100%",
+        maxWidth: 860,
+        background: border,
+        border: `1px solid ${border}`,
+        borderRadius: 16,
+        overflow: "hidden",
       }}>
         {features.map(f => (
-          <div key={f.title}
-            style={{ background: card, padding: "20px 20px", textAlign: "left", transition: "background 0.15s" }}
+          <div
+            key={f.title}
+            style={{ background: card, padding: "20px", textAlign: "left", transition: "background 0.15s" }}
             onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.03)" : "#fafaf8"}
             onMouseLeave={e => e.currentTarget.style.background = card}
           >

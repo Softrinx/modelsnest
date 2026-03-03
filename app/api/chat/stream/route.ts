@@ -1,82 +1,111 @@
 import type { NextRequest } from "next/server"
 import { ModelslabAI } from "@/lib/chat-api"
-import { requireAuth } from "@/lib/auth"
-import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
+import { getCurrentUser } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
-    // Ensure user is authenticated
-    await requireAuth()
+    const user = await getCurrentUser()
 
-    const { messages, model } = await request.json()
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized", code: "UNAUTHORIZED" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      )
+    }
 
-    // Get API key from environment variables
-    const apiKey = (await getActiveProviderApiKey("models_lab")) || process.env.MODELSLAB_API_KEY
+    const body = await request.json().catch(() => null)
+    if (!body) {
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body", code: "INVALID_BODY" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      )
+    }
+
+    const { messages, model } = body
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "messages array is required", code: "MISSING_MESSAGES" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      )
+    }
+
+    const apiKey = process.env.NOVITA_API_KEY
     if (!apiKey) {
-      return new Response("No primary ModelsLab key found in admin_api_keys and MODELSLAB_API_KEY is not set", {
-        status: 500,
-      })
+      return new Response(
+        JSON.stringify({ error: "Server misconfiguration", code: "NOVITA_API_KEY_MISSING" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      )
     }
 
     const client = new ModelslabAI(apiKey)
 
-    // Create streaming response
-    const stream = await client.createStreamingChatCompletion({
-      model: model || "deepseek/deepseek-v3-0324",
-      messages,
-      max_tokens: 4000,
-      temperature: 0.7,
-      stream: true,
-    })
+    let stream: ReadableStream<Uint8Array>
+    try {
+      stream = await client.createStreamingChatCompletion({
+        model: model || "deepseek/deepseek-v3-0324",
+        messages,
+        max_tokens: 4000,
+        temperature: 0.7,
+        stream: true,
+      })
+    } catch (streamInitError) {
+      console.error("Stream init failed:", streamInitError)
+      return new Response(
+        JSON.stringify({
+          error: "Failed to connect to AI provider",
+          code: "STREAM_INIT_FAILED",
+          detail: streamInitError instanceof Error ? streamInitError.message : String(streamInitError),
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } }
+      )
+    }
 
-    // Create a readable stream for the response
     const encoder = new TextEncoder()
     const decoder = new TextDecoder()
 
     const readableStream = new ReadableStream({
       async start(controller) {
         const reader = stream.getReader()
-
         try {
           while (true) {
             const { done, value } = await reader.read()
 
             if (done) {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"))
               controller.close()
               break
             }
 
-            // Decode the chunk
             const chunk = decoder.decode(value, { stream: true })
             const lines = chunk.split("\n")
 
             for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6).trim()
+              if (!line.startsWith("data: ")) continue
+              const data = line.slice(6).trim()
 
-                if (data === "[DONE]") {
-                  controller.close()
-                  return
+              if (data === "[DONE]") {
+                controller.enqueue(encoder.encode("data: [DONE]\n\n"))
+                controller.close()
+                return
+              }
+
+              try {
+                const parsed = JSON.parse(data)
+                const content = parsed.choices?.[0]?.delta?.content
+                if (content) {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
+                  )
                 }
-
-                try {
-                  const parsed = JSON.parse(data)
-                  const content = parsed.choices?.[0]?.delta?.content
-
-                  if (content) {
-                    // Send the content chunk to the client
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
-                  }
-                } catch (parseError) {
-                  // Skip invalid JSON lines
-                  continue
-                }
+              } catch {
+                // skip malformed lines
               }
             }
           }
-        } catch (error) {
-          console.error("Streaming error:", error)
-          controller.error(error)
+        } catch (err) {
+          console.error("Stream read error:", err)
+          controller.error(err)
         }
       },
     })
@@ -90,6 +119,13 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("Chat stream API error:", error)
-    return new Response("Internal server error", { status: 500 })
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        code: "INTERNAL_ERROR",
+        message: error instanceof Error ? error.message : "Unexpected error occurred",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    )
   }
 }
