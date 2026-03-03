@@ -29,7 +29,6 @@ const sections = [
     title: "Company",
     links: [
       { name: "About",    href: "/about" },
-      { name: "Blog",     href: "/blog" },
       { name: "Careers",  href: "/careers" },
       { name: "Press",    href: "/press" },
     ],
@@ -47,7 +46,6 @@ const sections = [
 ]
 
 const socials = [
-  { icon: Mail,          href: "mailto:modelsnest3@gmail.com", label: "Email" },
   { icon: Youtube,       href: "https://www.youtube.com/channel/UCMR4IQM1ZQ-tbGUdElOgK9g", label: "YouTube" },
   { icon: Instagram,     href: "https://www.instagram.com/modelsnest.ai/", label: "Instagram" },
   { icon: MessageCircle, href: "https://discord.gg/sEuW4V8K", label: "Discord" },
@@ -138,18 +136,7 @@ export function Footer() {
               Enterprise-grade AI APIs built for production. One unified platform for 50+ models with the reliability your applications demand.
             </p>
 
-            {/* Status */}
-            <div className="flex items-center gap-2">
-              <motion.div
-                animate={{ opacity: [1, 0.3, 1] }}
-                transition={{ duration: 1.8, repeat: Infinity }}
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ background: "var(--color-success)" }}
-              />
-              <span className="text-xs font-mono" style={{ color: "var(--color-text-muted)" }}>
-                All systems operational
-              </span>
-            </div>
+       
 
             {/* Socials */}
             <div className="flex items-center gap-4">
