@@ -1,9 +1,9 @@
 "use client"
 
-import { ChatMessage } from "@/components/chat-message"
 import { LoadingMessage } from "@/components/loading-message"
 import { StreamingMessage } from "@/components/streaming-message"
 import type { ChatMessage as ChatMessageType } from "@/lib/chat-api"
+import { ChatMessage } from "@/components/chat-message"
 
 interface MessageListProps {
   messages: ChatMessageType[]
