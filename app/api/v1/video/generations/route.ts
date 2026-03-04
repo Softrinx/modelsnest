@@ -304,18 +304,18 @@ export async function POST(request: NextRequest) {
     })
 
     const providerContentType = providerResponse.headers.get("content-type") || ""
-    const providerPayload = providerContentType.includes("application/json")
+    const providerResponsePayload = providerContentType.includes("application/json")
       ? await providerResponse.json().catch(() => null)
       : await providerResponse.text().catch(() => null)
 
-    let providerPayloadNormalized: any = providerPayload
+    let providerPayloadNormalized = providerResponsePayload
     let usedProviderFallback = false
 
     if (!providerResponse.ok) {
       const providerError =
-        (typeof providerPayload === "object" && providerPayload &&
-          (providerPayload.error?.message || providerPayload.error || providerPayload.message)) ||
-        (typeof providerPayload === "string" ? providerPayload : providerResponse.statusText)
+        (typeof providerResponsePayload === "object" && providerResponsePayload &&
+          (providerResponsePayload.error?.message || providerResponsePayload.error || providerResponsePayload.message)) ||
+        (typeof providerResponsePayload === "string" ? providerResponsePayload : providerResponse.statusText)
 
       usedProviderFallback = true
       providerPayloadNormalized = {
