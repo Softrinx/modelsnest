@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { DM_Sans } from 'next/font/google'
+import { Funnel_Display, DM_Sans } from 'next/font/google'
 import { GeistMono } from 'geist/font/mono'
 import { StructuredData, OrganizationStructuredData } from '@/components/structured-data'
 import { ThemeProvider } from '@/contexts/themeContext'
@@ -8,10 +8,17 @@ import './globals.css'
 
 export const dynamic = 'force-dynamic'
 
+const funnelDisplay = Funnel_Display({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-funnel-display',
+  display: 'swap',
+})
+
 const dmSans = DM_Sans({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-sans',
+  variable: '--font-dm-sans',
   display: 'swap',
 })
 
@@ -101,7 +108,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="dark"
-      className={`${dmSans.variable} ${GeistMono.variable}`}
+      className={`${funnelDisplay.variable} ${dmSans.variable} ${GeistMono.variable}`}
       suppressHydrationWarning
     >
       <head>
