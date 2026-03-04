@@ -65,13 +65,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const apiKey = (await getActiveProviderApiKey("models_lab")) || process.env.MODELSLAB_API_KEY
+    const apiKey =
+      (await getActiveProviderApiKey("novita")) ||
+      process.env.NOVITA_API_KEY ||
+      (await getActiveProviderApiKey("models_lab")) ||
+      process.env.MODELSLAB_API_KEY
     if (!apiKey) {
       return NextResponse.json(
         {
           error: "Server misconfiguration",
-          code: "MODELSLAB_API_KEY_MISSING",
-          message: "No primary ModelsLab key found in admin_api_keys and MODELSLAB_API_KEY is not set",
+          code: "NOVITA_API_KEY_MISSING",
+          message: "No primary Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
         },
         { status: 500 },
       )

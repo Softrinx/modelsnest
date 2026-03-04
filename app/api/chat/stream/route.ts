@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server"
 import { ModelslabAI } from "@/lib/chat-api"
 import { getCurrentUser } from "@/lib/auth"
+import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,10 +31,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const apiKey = process.env.NOVITA_API_KEY
+    const apiKey =
+      (await getActiveProviderApiKey("novita")) ||
+      process.env.NOVITA_API_KEY ||
+      (await getActiveProviderApiKey("models_lab")) ||
+      process.env.MODELSLAB_API_KEY
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "Server misconfiguration", code: "NOVITA_API_KEY_MISSING" }),
+        JSON.stringify({
+          error: "Server misconfiguration",
+          code: "NOVITA_API_KEY_MISSING",
+          message: "No primary Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
+        }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       )
     }

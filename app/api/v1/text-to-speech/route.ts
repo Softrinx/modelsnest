@@ -4,7 +4,9 @@ import { createAdminClient } from "@/lib/supabase/server"
 import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
 import { checkRateLimit } from "@/lib/rate-limit"
 
-const PROVIDER_BASE_URL = process.env.MODELSLAB_BASE_URL || "https://modelslab.com"
+const NOVITA_BASE_URL = process.env.NOVITA_BASE_URL || "https://api.novita.ai/v3"
+const DEFAULT_TTS_MODEL_SLUG = "minimax-speech-2.8-turbo"
+const DEFAULT_PRICE_PER_1K_CHARS_USD = 0.001
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,30 +56,26 @@ export async function POST(request: NextRequest) {
       voice?: string
     }
 
-    if (!model || typeof model !== "string" || model.trim().length === 0) {
-      return NextResponse.json(
-        {
-          error: "Missing model",
-          code: "MISSING_MODEL",
-          message: "Provide a model slug in the 'model' field",
-        },
-        { status: 400 },
-      )
-    }
-
-    const providerApiKey = (await getActiveProviderApiKey("models_lab")) || process.env.MODELSLAB_API_KEY
+    const providerApiKey =
+      (await getActiveProviderApiKey("novita")) ||
+      process.env.NOVITA_API_KEY ||
+      (await getActiveProviderApiKey("models_lab")) ||
+      process.env.MODELSLAB_API_KEY
     if (!providerApiKey) {
       return NextResponse.json(
         {
           error: "Server misconfiguration",
-          code: "MODELSLAB_API_KEY_MISSING",
-          message: "No primary ModelsLab key found in admin_api_keys and MODELSLAB_API_KEY is not set",
+          code: "NOVITA_API_KEY_MISSING",
+          message: "No primary Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
         },
         { status: 500 },
       )
     }
 
-    const requestedModelSlug = model.trim()
+    const requestedModelSlug =
+      typeof model === "string" && model.trim().length > 0
+        ? model.trim()
+        : DEFAULT_TTS_MODEL_SLUG
     const adminSupabase = await createAdminClient()
     const userId = tokenInfo.user_id
 
@@ -101,6 +99,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    let catalogModelId: string | null = null
+    let effectiveModelSlug = DEFAULT_TTS_MODEL_SLUG
+    let pricingUnit = "1k characters"
+    let isPer1kCharacters = true
+    let unitPrice = DEFAULT_PRICE_PER_1K_CHARS_USD
+
     const { data: catalogModel, error: catalogError } = await adminSupabase
       .from("ai_models")
       .select("id, slug, status, is_active")
@@ -111,64 +115,55 @@ export async function POST(request: NextRequest) {
       console.error("Error loading model from catalog:", catalogError)
     }
 
-    if (!catalogModel) {
-      return NextResponse.json(
-        {
-          error: "Unknown model",
-          code: "MODEL_NOT_FOUND",
-          message: `The requested model "${requestedModelSlug}" does not exist in the catalog.`,
-        },
-        { status: 400 },
-      )
-    }
+    if (catalogModel) {
+      if (catalogModel.status !== "active" || catalogModel.is_active === false) {
+        return NextResponse.json(
+          {
+            error: "Model is not available",
+            code: "MODEL_UNAVAILABLE",
+            message: `The requested model "${requestedModelSlug}" is currently ${catalogModel.status}.`,
+          },
+          { status: 400 },
+        )
+      }
 
-    if (catalogModel.status !== "active" || catalogModel.is_active === false) {
-      return NextResponse.json(
-        {
-          error: "Model is not available",
-          code: "MODEL_UNAVAILABLE",
-          message: `The requested model "${requestedModelSlug}" is currently ${catalogModel.status}.`,
-        },
-        { status: 400 },
-      )
-    }
+      catalogModelId = catalogModel.id
+      effectiveModelSlug = catalogModel.slug || requestedModelSlug
 
-    const { data: pricingRow, error: pricingError } = await adminSupabase
-      .from("ai_model_pricing")
-      .select("input_price, output_price, price_unit, currency")
-      .eq("model_id", catalogModel.id)
-      .maybeSingle()
+      const { data: pricingRow, error: pricingError } = await adminSupabase
+        .from("ai_model_pricing")
+        .select("input_price, output_price, price_unit, currency")
+        .eq("model_id", catalogModel.id)
+        .maybeSingle()
 
-    if (pricingError || !pricingRow) {
-      console.error("Error loading model pricing:", pricingError)
-      return NextResponse.json(
-        {
-          error: "Pricing unavailable",
-          code: "PRICING_MISSING",
-          message: "Pricing information for this model is not configured.",
-        },
-        { status: 500 },
-      )
-    }
+      if (pricingError) {
+        console.error("Error loading model pricing:", pricingError)
+      } else if (pricingRow) {
+        const normalizedPriceUnit = String(pricingRow.price_unit ?? "").trim().toLowerCase()
+        const isPerCharacter =
+          normalizedPriceUnit === "character" ||
+          normalizedPriceUnit === "char" ||
+          normalizedPriceUnit === "characters"
+        const isPer1kCharsFromCatalog =
+          normalizedPriceUnit === "1k chars" ||
+          normalizedPriceUnit === "1k char" ||
+          normalizedPriceUnit === "1k characters" ||
+          normalizedPriceUnit === "1000 chars" ||
+          normalizedPriceUnit === "1000 characters"
 
-    const normalizedPriceUnit = String(pricingRow.price_unit ?? "").trim().toLowerCase()
-    const isPerCharacter = normalizedPriceUnit === "character" || normalizedPriceUnit === "char" || normalizedPriceUnit === "characters"
-    const isPer1kCharacters =
-      normalizedPriceUnit === "1k chars" ||
-      normalizedPriceUnit === "1k char" ||
-      normalizedPriceUnit === "1k characters" ||
-      normalizedPriceUnit === "1000 chars" ||
-      normalizedPriceUnit === "1000 characters"
-
-    if (pricingRow.currency !== "USD" || (!isPerCharacter && !isPer1kCharacters)) {
-      return NextResponse.json(
-        {
-          error: "Unsupported pricing unit",
-          code: "UNSUPPORTED_UNIT",
-          message: "Text-to-speech endpoint expects models priced per character or per 1k characters in USD.",
-        },
-        { status: 500 },
-      )
+        if (pricingRow.currency === "USD" && (isPerCharacter || isPer1kCharsFromCatalog)) {
+          pricingUnit = pricingRow.price_unit
+          isPer1kCharacters = isPer1kCharsFromCatalog
+          const catalogUnitPrice = Math.max(
+            Number(pricingRow.input_price ?? 0),
+            Number(pricingRow.output_price ?? 0),
+            0,
+          )
+          if (Number.isFinite(catalogUnitPrice) && catalogUnitPrice > 0) {
+            unitPrice = catalogUnitPrice
+          }
+        }
+      }
     }
 
     const textLength =
@@ -199,12 +194,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
-
-    const unitPrice = Math.max(
-      Number(pricingRow.input_price ?? 0),
-      Number(pricingRow.output_price ?? 0),
-      0,
-    )
 
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       return NextResponse.json(
@@ -295,39 +284,58 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const resolvedModelPath = effectiveModelSlug.startsWith("async/")
+      ? effectiveModelSlug
+      : `async/${effectiveModelSlug}`
+
     const providerPayload = {
       ...body,
-      model: requestedModelSlug,
-      input: text,
       text,
+      text_file_id: body.text_file_id ?? 0,
+      voice_modify: body.voice_modify ?? {
+        pitch: -100,
+        timbre: -100,
+        intensity: -100,
+      },
+      audio_setting: body.audio_setting ?? {
+        format: "mp3",
+        bitrate: 128000,
+        channel: 2,
+        audio_sample_rate: 32000,
+      },
+      voice_setting: body.voice_setting ?? {
+        vol: 1,
+        pitch: 0,
+        speed: 1,
+        voice_id: "English_Graceful_Lady",
+      },
+      aigc_watermark: body.aigc_watermark ?? false,
+      language_boost: body.language_boost ?? "English",
+      continuous_sound: body.continuous_sound ?? true,
     }
 
-    const providerPaths = ["/v1/audio/speech", "/v1/text-to-speech"]
+    const response = await fetch(`${NOVITA_BASE_URL}/${resolvedModelPath.replace(/^\/+/, "")}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${providerApiKey}`,
+      },
+      body: JSON.stringify(providerPayload),
+    })
+
+    const contentType = response.headers.get("content-type") || ""
+    const payload = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => null)
+
     let providerResponseBody: any = null
     let providerError: string | null = null
     let usedProviderFallback = false
 
-    for (const providerPath of providerPaths) {
-      const response = await fetch(`${PROVIDER_BASE_URL}${providerPath}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${providerApiKey}`,
-        },
-        body: JSON.stringify(providerPayload),
-      })
-
-      const contentType = response.headers.get("content-type") || ""
-      const payload = contentType.includes("application/json")
-        ? await response.json().catch(() => null)
-        : await response.text().catch(() => null)
-
-      if (response.ok) {
-        providerResponseBody = payload
-        providerError = null
-        break
-      }
-
+    if (response.ok) {
+      providerResponseBody = payload
+      providerError = null
+    } else {
       providerError =
         (typeof payload === "object" && payload && (payload.error?.message || payload.error || payload.message)) ||
         (typeof payload === "string" ? payload : response.statusText)
@@ -358,9 +366,10 @@ export async function POST(request: NextRequest) {
       metadata: {
         source: "api",
         token_id: tokenInfo.id,
-        model_slug: requestedModelSlug,
+        model_slug: effectiveModelSlug,
+        catalog_model_id: catalogModelId,
         characters_billed: textLength,
-        pricing_unit: pricingRow.price_unit,
+        pricing_unit: pricingUnit,
         unit_price_usd: unitPrice,
         provider_fallback: usedProviderFallback,
       },
@@ -385,7 +394,7 @@ export async function POST(request: NextRequest) {
       tokens_used: null,
       cost,
       cost_usd: cost,
-      model_used: requestedModelSlug,
+      model_used: effectiveModelSlug,
       request_id: providerRequestId,
     })
 
@@ -402,7 +411,7 @@ export async function POST(request: NextRequest) {
           }),
       billing: {
         cost_usd: cost,
-        pricing_unit: pricingRow.price_unit,
+        pricing_unit: pricingUnit,
         unit_price_usd: unitPrice,
       },
     })

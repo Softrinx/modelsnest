@@ -4,7 +4,10 @@ import { createAdminClient } from "@/lib/supabase/server"
 import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
 import { checkRateLimit } from "@/lib/rate-limit"
 
-const PROVIDER_BASE_URL = process.env.MODELSLAB_BASE_URL || "https://modelslab.com"
+const NOVITA_BASE_URL = process.env.NOVITA_BASE_URL || "https://api.novita.ai/v3"
+const DEFAULT_TEXT_TO_VIDEO_MODEL_SLUG = "wan-t2v"
+const DEFAULT_IMAGE_TO_VIDEO_MODEL_SLUG = "wan-i2v"
+const DEFAULT_PRICE_PER_SECOND_USD = 0.001
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,30 +56,33 @@ export async function POST(request: NextRequest) {
       prompt?: string
     }
 
-    if (!model || typeof model !== "string" || model.trim().length === 0) {
-      return NextResponse.json(
-        {
-          error: "Missing model",
-          code: "MISSING_MODEL",
-          message: "Provide a model slug in the 'model' field",
-        },
-        { status: 400 },
-      )
-    }
-
-    const providerApiKey = (await getActiveProviderApiKey("models_lab")) || process.env.MODELSLAB_API_KEY
+    const providerApiKey =
+      (await getActiveProviderApiKey("novita")) ||
+      process.env.NOVITA_API_KEY ||
+      (await getActiveProviderApiKey("models_lab")) ||
+      process.env.MODELSLAB_API_KEY
     if (!providerApiKey) {
       return NextResponse.json(
         {
           error: "Server misconfiguration",
-          code: "MODELSLAB_API_KEY_MISSING",
-          message: "No primary ModelsLab key found in admin_api_keys and MODELSLAB_API_KEY is not set",
+          code: "NOVITA_API_KEY_MISSING",
+          message: "No primary Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
         },
         { status: 500 },
       )
     }
 
-    const requestedModelSlug = model.trim()
+    const imageUrl =
+      typeof body.image_url === "string" && body.image_url.trim().length > 0
+        ? body.image_url.trim()
+        : null
+
+    const requestedModelSlug =
+      typeof model === "string" && model.trim().length > 0
+        ? model.trim()
+        : imageUrl
+          ? DEFAULT_IMAGE_TO_VIDEO_MODEL_SLUG
+          : DEFAULT_TEXT_TO_VIDEO_MODEL_SLUG
     const adminSupabase = await createAdminClient()
     const userId = tokenInfo.user_id
 
@@ -100,6 +106,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    let catalogModelId: string | null = null
+    let effectiveModelSlug = imageUrl ? DEFAULT_IMAGE_TO_VIDEO_MODEL_SLUG : DEFAULT_TEXT_TO_VIDEO_MODEL_SLUG
+    let perSecond = DEFAULT_PRICE_PER_SECOND_USD
+
     const { data: catalogModel, error: catalogError } = await adminSupabase
       .from("ai_models")
       .select("id, slug, status, is_active")
@@ -110,55 +120,39 @@ export async function POST(request: NextRequest) {
       console.error("Error loading model from catalog:", catalogError)
     }
 
-    if (!catalogModel) {
-      return NextResponse.json(
-        {
-          error: "Unknown model",
-          code: "MODEL_NOT_FOUND",
-          message: `The requested model "${requestedModelSlug}" does not exist in the catalog.`,
-        },
-        { status: 400 },
-      )
-    }
+    if (catalogModel) {
+      if (catalogModel.status !== "active" || catalogModel.is_active === false) {
+        return NextResponse.json(
+          {
+            error: "Model is not available",
+            code: "MODEL_UNAVAILABLE",
+            message: `The requested model "${requestedModelSlug}" is currently ${catalogModel.status}.`,
+          },
+          { status: 400 },
+        )
+      }
 
-    if (catalogModel.status !== "active" || catalogModel.is_active === false) {
-      return NextResponse.json(
-        {
-          error: "Model is not available",
-          code: "MODEL_UNAVAILABLE",
-          message: `The requested model "${requestedModelSlug}" is currently ${catalogModel.status}.`,
-        },
-        { status: 400 },
-      )
-    }
+      catalogModelId = catalogModel.id
+      effectiveModelSlug = catalogModel.slug || requestedModelSlug
 
-    const { data: pricingRow, error: pricingError } = await adminSupabase
-      .from("ai_model_pricing")
-      .select("input_price, output_price, price_unit, currency")
-      .eq("model_id", catalogModel.id)
-      .maybeSingle()
+      const { data: pricingRow, error: pricingError } = await adminSupabase
+        .from("ai_model_pricing")
+        .select("input_price, output_price, price_unit, currency")
+        .eq("model_id", catalogModel.id)
+        .maybeSingle()
 
-    if (pricingError || !pricingRow) {
-      console.error("Error loading model pricing:", pricingError)
-      return NextResponse.json(
-        {
-          error: "Pricing unavailable",
-          code: "PRICING_MISSING",
-          message: "Pricing information for this model is not configured.",
-        },
-        { status: 500 },
-      )
-    }
-
-    if (pricingRow.currency !== "USD" || pricingRow.price_unit !== "second") {
-      return NextResponse.json(
-        {
-          error: "Unsupported pricing unit",
-          code: "UNSUPPORTED_UNIT",
-          message: "Video generation endpoint expects models priced per second in USD.",
-        },
-        { status: 500 },
-      )
+      if (pricingError) {
+        console.error("Error loading model pricing:", pricingError)
+      } else if (pricingRow && pricingRow.currency === "USD" && pricingRow.price_unit === "second") {
+        const catalogPerSecond = Math.max(
+          Number(pricingRow.input_price ?? 0),
+          Number(pricingRow.output_price ?? 0),
+          0,
+        )
+        if (Number.isFinite(catalogPerSecond) && catalogPerSecond > 0) {
+          perSecond = catalogPerSecond
+        }
+      }
     }
 
     const durationSeconds =
@@ -176,12 +170,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
-
-    const perSecond = Math.max(
-      Number(pricingRow.input_price ?? 0),
-      Number(pricingRow.output_price ?? 0),
-      0,
-    )
 
     if (!Number.isFinite(perSecond) || perSecond <= 0) {
       return NextResponse.json(
@@ -272,17 +260,47 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const providerResponse = await fetch(`${PROVIDER_BASE_URL}/v1/video/generations`, {
+    const resolvedModelPath = effectiveModelSlug.startsWith("async/")
+      ? effectiveModelSlug
+      : `async/${effectiveModelSlug}`
+
+    const providerPayload = imageUrl
+      ? {
+          ...body,
+          seed: body.seed ?? 12345,
+          steps: body.steps ?? 30,
+          width: body.width ?? 832,
+          height: body.height ?? 480,
+          prompt: body.prompt,
+          fast_mode: body.fast_mode ?? false,
+          image_url: imageUrl,
+          watermark: body.watermark ?? false,
+          flow_shift: body.flow_shift ?? 1,
+          guidance_scale: body.guidance_scale ?? 5,
+          enable_safety_checker: body.enable_safety_checker ?? true,
+        }
+      : {
+          ...body,
+          seed: body.seed ?? 12345,
+          steps: body.steps ?? 30,
+          width: body.width ?? 1280,
+          height: body.height ?? 720,
+          prompt: body.prompt,
+          fast_mode: body.fast_mode ?? false,
+          watermark: body.watermark ?? false,
+          flow_shift: body.flow_shift ?? 5,
+          guidance_scale: body.guidance_scale ?? 5,
+          negative_prompt: body.negative_prompt ?? "blurry, low quality, distorted, watermark, text",
+          enable_safety_checker: body.enable_safety_checker ?? false,
+        }
+
+    const providerResponse = await fetch(`${NOVITA_BASE_URL}/${resolvedModelPath.replace(/^\/+/, "")}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${providerApiKey}`,
       },
-      body: JSON.stringify({
-        ...body,
-        model: requestedModelSlug,
-        duration_seconds: durationSeconds,
-      }),
+      body: JSON.stringify(providerPayload),
     })
 
     const providerContentType = providerResponse.headers.get("content-type") || ""
@@ -323,7 +341,8 @@ export async function POST(request: NextRequest) {
       metadata: {
         source: "api",
         token_id: tokenInfo.id,
-        model_slug: requestedModelSlug,
+        model_slug: effectiveModelSlug,
+        catalog_model_id: catalogModelId,
         duration_seconds: durationSeconds,
         price_per_second_usd: perSecond,
         provider_fallback: usedProviderFallback,
@@ -349,7 +368,7 @@ export async function POST(request: NextRequest) {
       tokens_used: null,
       cost,
       cost_usd: cost,
-      model_used: requestedModelSlug,
+      model_used: effectiveModelSlug,
       request_id: providerRequestId,
     })
 

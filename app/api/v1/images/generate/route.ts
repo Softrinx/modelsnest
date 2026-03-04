@@ -4,7 +4,9 @@ import { createAdminClient } from "@/lib/supabase/server"
 import { getActiveProviderApiKey } from "@/lib/admin-api-keys"
 import { checkRateLimit } from "@/lib/rate-limit"
 
-const PROVIDER_BASE_URL = process.env.MODELSLAB_BASE_URL || "https://modelslab.com"
+const NOVITA_BASE_URL = process.env.NOVITA_BASE_URL || "https://api.novita.ai/v3"
+const DEFAULT_IMAGE_MODEL_SLUG = "seedream-5.0-lite"
+const DEFAULT_PRICE_PER_IMAGE_USD = 0.001
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,17 +58,6 @@ export async function POST(request: NextRequest) {
       height?: number
     }
 
-    if (!model || typeof model !== "string" || model.trim().length === 0) {
-      return NextResponse.json(
-        {
-          error: "Missing model",
-          code: "MISSING_MODEL",
-          message: "Provide a model slug in the 'model' field",
-        },
-        { status: 400 },
-      )
-    }
-
     if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
       return NextResponse.json(
         {
@@ -78,19 +69,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const providerApiKey = (await getActiveProviderApiKey("models_lab")) || process.env.MODELSLAB_API_KEY
+    const providerApiKey =
+      (await getActiveProviderApiKey("novita")) ||
+      process.env.NOVITA_API_KEY ||
+      (await getActiveProviderApiKey("models_lab")) ||
+      process.env.MODELSLAB_API_KEY
     if (!providerApiKey) {
       return NextResponse.json(
         {
           error: "Server misconfiguration",
-          code: "MODELSLAB_API_KEY_MISSING",
-          message: "No primary ModelsLab key found in admin_api_keys and MODELSLAB_API_KEY is not set",
+          code: "NOVITA_API_KEY_MISSING",
+          message: "No primary Novita key found in admin_api_keys and NOVITA_API_KEY is not set",
         },
         { status: 500 },
       )
     }
 
-    const requestedModelSlug = model.trim()
+    const requestedModelSlug =
+      typeof model === "string" && model.trim().length > 0
+        ? model.trim()
+        : DEFAULT_IMAGE_MODEL_SLUG
     const adminSupabase = await createAdminClient()
     const userId = tokenInfo.user_id
 
@@ -114,6 +112,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    let catalogModelId: string | null = null
+    let effectiveModelSlug = DEFAULT_IMAGE_MODEL_SLUG
+    let perImage = DEFAULT_PRICE_PER_IMAGE_USD
+
     const { data: catalogModel, error: catalogError } = await adminSupabase
       .from("ai_models")
       .select("id, slug, status, is_active")
@@ -124,58 +126,43 @@ export async function POST(request: NextRequest) {
       console.error("Error loading model from catalog:", catalogError)
     }
 
-    if (!catalogModel) {
-      return NextResponse.json(
-        {
-          error: "Unknown model",
-          code: "MODEL_NOT_FOUND",
-          message: `The requested model "${requestedModelSlug}" does not exist in the catalog.`,
-        },
-        { status: 400 },
-      )
-    }
+    if (catalogModel) {
+      if (catalogModel.status !== "active" || catalogModel.is_active === false) {
+        return NextResponse.json(
+          {
+            error: "Model is not available",
+            code: "MODEL_UNAVAILABLE",
+            message: `The requested model "${requestedModelSlug}" is currently ${catalogModel.status}.`,
+          },
+          { status: 400 },
+        )
+      }
 
-    if (catalogModel.status !== "active" || catalogModel.is_active === false) {
-      return NextResponse.json(
-        {
-          error: "Model is not available",
-          code: "MODEL_UNAVAILABLE",
-          message: `The requested model "${requestedModelSlug}" is currently ${catalogModel.status}.`,
-        },
-        { status: 400 },
-      )
-    }
+      catalogModelId = catalogModel.id
+      effectiveModelSlug = catalogModel.slug || requestedModelSlug
 
-    const { data: pricingRow, error: pricingError } = await adminSupabase
-      .from("ai_model_pricing")
-      .select("input_price, output_price, price_unit, currency")
-      .eq("model_id", catalogModel.id)
-      .maybeSingle()
+      const { data: pricingRow, error: pricingError } = await adminSupabase
+        .from("ai_model_pricing")
+        .select("input_price, output_price, price_unit, currency")
+        .eq("model_id", catalogModel.id)
+        .maybeSingle()
 
-    if (pricingError || !pricingRow) {
-      console.error("Error loading model pricing:", pricingError)
-      return NextResponse.json(
-        {
-          error: "Pricing unavailable",
-          code: "PRICING_MISSING",
-          message: "Pricing information for this model is not configured.",
-        },
-        { status: 500 },
-      )
-    }
-
-    const normalizedPriceUnit = String(pricingRow.price_unit ?? "").trim().toLowerCase()
-    const isPerImage = normalizedPriceUnit === "image" || normalizedPriceUnit === "images"
-
-    if (pricingRow.currency !== "USD" || !isPerImage) {
-      return NextResponse.json(
-        {
-          error: "Unsupported pricing unit",
-          code: "UNSUPPORTED_UNIT",
-          message: "Image generation endpoint expects models priced per image in USD.",
-        },
-        { status: 500 },
-      )
+      if (pricingError) {
+        console.error("Error loading model pricing:", pricingError)
+      } else if (pricingRow) {
+        const normalizedPriceUnit = String(pricingRow.price_unit ?? "").trim().toLowerCase()
+        const isPerImage = normalizedPriceUnit === "image" || normalizedPriceUnit === "images"
+        if (pricingRow.currency === "USD" && isPerImage) {
+          const catalogPerImage = Math.max(
+            Number(pricingRow.input_price ?? 0),
+            Number(pricingRow.output_price ?? 0),
+            0,
+          )
+          if (Number.isFinite(catalogPerImage) && catalogPerImage > 0) {
+            perImage = catalogPerImage
+          }
+        }
+      }
     }
 
     const imageCountRaw = typeof num_images === "number" ? num_images : n
@@ -193,12 +180,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
-
-    const perImage = Math.max(
-      Number(pricingRow.input_price ?? 0),
-      Number(pricingRow.output_price ?? 0),
-      0,
-    )
 
     if (!Number.isFinite(perImage) || perImage <= 0) {
       return NextResponse.json(
@@ -289,40 +270,49 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const resolvedModelPath = effectiveModelSlug.replace(/^\/+/, "")
+    const novitaEndpointPath = `/` + resolvedModelPath
+    const size =
+      typeof body.size === "string" && body.size.trim().length > 0
+        ? body.size
+        : typeof width === "number" && Number.isFinite(width) && typeof height === "number" && Number.isFinite(height)
+          ? `${Math.floor(width)}x${Math.floor(height)}`
+          : "2048x2048"
+
     const providerPayload = {
       ...body,
-      model: requestedModelSlug,
       prompt: prompt.trim(),
+      size,
+      watermark: body.watermark ?? false,
+      optimize_prompt_options: body.optimize_prompt_options ?? { mode: "standard" },
+      sequential_image_generation: body.sequential_image_generation ?? "disabled",
+      sequential_image_generation_options: body.sequential_image_generation_options ?? { max_images: 15 },
       n: imageCount,
       num_images: imageCount,
     }
 
-    const providerPaths = ["/v1/images/generations", "/v1/images/generate"]
+    const response = await fetch(`${NOVITA_BASE_URL}${novitaEndpointPath}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${providerApiKey}`,
+      },
+      body: JSON.stringify(providerPayload),
+    })
+
+    const contentType = response.headers.get("content-type") || ""
+    const payload = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => null)
+
     let providerResponseBody: any = null
     let providerError: string | null = null
     let usedProviderFallback = false
 
-    for (const providerPath of providerPaths) {
-      const response = await fetch(`${PROVIDER_BASE_URL}${providerPath}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${providerApiKey}`,
-        },
-        body: JSON.stringify(providerPayload),
-      })
-
-      const contentType = response.headers.get("content-type") || ""
-      const payload = contentType.includes("application/json")
-        ? await response.json().catch(() => null)
-        : await response.text().catch(() => null)
-
-      if (response.ok) {
-        providerResponseBody = payload
-        providerError = null
-        break
-      }
-
+    if (response.ok) {
+      providerResponseBody = payload
+      providerError = null
+    } else {
       providerError =
         (typeof payload === "object" && payload && (payload.error?.message || payload.error || payload.message)) ||
         (typeof payload === "string" ? payload : response.statusText)
@@ -356,7 +346,8 @@ export async function POST(request: NextRequest) {
       metadata: {
         source: "api",
         token_id: tokenInfo.id,
-        model_slug: requestedModelSlug,
+        model_slug: effectiveModelSlug,
+        catalog_model_id: catalogModelId,
         prompt_length: prompt.trim().length,
         image_count: imageCount,
         width: typeof width === "number" ? width : null,
@@ -385,7 +376,7 @@ export async function POST(request: NextRequest) {
       tokens_used: null,
       cost,
       cost_usd: cost,
-      model_used: requestedModelSlug,
+      model_used: effectiveModelSlug,
       request_id: providerRequestId,
     })
 

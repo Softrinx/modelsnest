@@ -12,7 +12,7 @@ import { CreateTokenDialog } from "@/components/create-token-dialog"
 import { UserIdSection } from "@/components/user-id-section"
 import { IntegrationsSection } from "@/components/integrations-section"
 import Link from "next/link"
-import { Key, ExternalLink, Terminal, ChevronRight, Zap, Plug, Activity } from "lucide-react"
+import { Key, ExternalLink, ChevronRight, Zap, Plug, Activity } from "lucide-react"
 import type { DashboardUser } from "@/types/dashboard-user"
 
 interface ApiTokensMainProps { user: DashboardUser }
@@ -196,50 +196,6 @@ export function ApiTokensMain({ user }: ApiTokensMainProps) {
               <CreateTokenDialog onTokenCreated={refreshTokenData} />
             </div>
           )}
-        </Section>
-
-        {/* Deduction API */}
-        <Section title="Token Deduction API" icon={Terminal} color="#06b6d4"
-          border={border} surface={surface} text={text} muted={muted} isDark={isDark}>
-          <p style={{ fontSize: 13, color: subtext, lineHeight: 1.7, marginBottom: 16 }}>
-            Programmatically deduct credits via API. Each successful request deducts{" "}
-            <span style={{ color: text, fontWeight: 700, fontFamily: "monospace" }}>$1.00 USD</span> from your balance.
-          </p>
-
-          {/* Code block */}
-          <div style={{ border: `1px solid ${border}`, overflow: "hidden", marginBottom: 16 }}>
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "8px 14px", background: isDark ? "#0a0a0d" : "#f0f0ee",
-              borderBottom: `1px solid ${border}`,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Terminal size={11} style={{ color: "#06b6d4" }} />
-                <span style={{ fontSize: 11, fontFamily: "monospace", color: "#06b6d4" }}>cURL</span>
-              </div>
-              <span style={{ fontSize: 10, fontFamily: "monospace", color: muted }}>POST /api/deduct-credits</span>
-            </div>
-            <div style={{ padding: "14px 16px", background: isDark ? "#080809" : "#fafaf9", overflowX: "auto" }}>
-              <pre style={{ margin: 0, fontSize: 12, fontFamily: "monospace", lineHeight: "22px", color: isDark ? "#c9c9d4" : "#1c1917" }}>
-{`curl -X POST ${typeof window !== "undefined" ? window.location.origin : "https://modelsnest.com"}/api/deduct-credits \\
-  -H "Authorization: Bearer ptr_YOUR_API_TOKEN"`}
-              </pre>
-            </div>
-          </div>
-
-          {/* Status dots */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
-            {[
-              { dot: "#10b981", label: "200 OK — Success" },
-              { dot: "#ef4444", label: "402 — Insufficient Funds" },
-              { dot: "#f59e0b", label: "401 — Invalid Token" },
-            ].map(s => (
-              <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <div style={{ width: 7, height: 7, borderRadius: "50%", background: s.dot }} />
-                <span style={{ fontSize: 12, fontFamily: "monospace", color: muted }}>{s.label}</span>
-              </div>
-            ))}
-          </div>
         </Section>
 
         {/* Applications */}
