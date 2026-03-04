@@ -17,8 +17,9 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ['var(--font-dm-sans)', 'DM Sans', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-funnel-display)', 'var(--font-dm-sans)', 'DM Sans', 'system-ui', 'sans-serif'],
         mono: ['var(--font-geist-mono)', 'Courier New', 'monospace'],
+        funnel: ['var(--font-funnel-display)', 'system-ui', 'sans-serif'],
       },
       maxWidth: {
         '8xl': '88rem',
