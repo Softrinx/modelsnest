@@ -2,6 +2,13 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { AdminLayoutClient } from "./admin-layout-client"
 import { isAdmin } from "@/lib/admin-utils"
+import { Funnel_Display } from "next/font/google"
+
+const funnelDisplay = Funnel_Display({
+  subsets: ["latin"],
+  variable: "--font-funnel-display",
+  display: "swap",
+})
 
 export default async function AdminLayout({
   children,
@@ -15,16 +22,15 @@ export default async function AdminLayout({
 
   const userIsAdmin = user ? await isAdmin(supabase, user.id) : false
 
-  // If not authenticated or not admin, just render children
-  // The middleware will handle the redirect to /login if needed
-  // This prevents infinite redirect loops
   if (!user || !userIsAdmin) {
     return <>{children}</>
   }
 
   return (
-    <AdminLayoutClient user={user}>
-      {children}
-    </AdminLayoutClient>
+    <div className={`${funnelDisplay.variable} font-[family-name:var(--font-funnel-display)]`}>
+      <AdminLayoutClient user={user}>
+        {children}
+      </AdminLayoutClient>
+    </div>
   )
 }
