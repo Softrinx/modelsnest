@@ -7,8 +7,8 @@ import { ModelSelector } from "@/components/model-selector"
 import { ChatWelcome } from "@/components/chat-welcome"
 import { sendChatMessage, getChatModels } from "@/app/actions/chat"
 import { useChatStream } from "@/hooks/use-chat-stream"
-import { Button } from "@/components/ui/button"
 import { Trash2, Download, Zap, MessageSquare } from "lucide-react"
+import { useTheme } from "@/contexts/themeContext"
 import type { ChatMessage } from "@/lib/chat-api"
 import type { DashboardUser } from "@/types/dashboard-user"
 
@@ -17,6 +17,7 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ user }: ChatInterfaceProps) {
+  const { isDark } = useTheme()
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "system",
@@ -31,19 +32,20 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { streamMessage, isStreaming } = useChatStream()
 
-  useEffect(() => {
-    // Load available models
-    getChatModels().then(setModels)
-  }, [])
+  const bg        = isDark ? "#0a0a0c" : "#f5f5f3"
+  const surface   = isDark ? "#111114" : "#ffffff"
+  const border    = isDark ? "#232329" : "#e0e0de"
+  const borderSub = isDark ? "#1c1c22" : "#e8e8e6"
+  const text      = isDark ? "#f0f0f2" : "#111113"
+  const textMuted = isDark ? "#6b6b78" : "#888890"
 
+  useEffect(() => { getChatModels().then(setModels) }, [])
   useEffect(() => {
-    // Auto-scroll to bottom when new messages are added
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, currentStreamingMessage])
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || isLoading || isStreaming) return
-
     const userMessage: ChatMessage = { role: "user", content }
     const updatedMessages = [...messages, userMessage]
     setMessages(updatedMessages)
@@ -52,55 +54,28 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
 
     try {
       if (streamingEnabled) {
-        // Use streaming
         await streamMessage(
-          updatedMessages,
-          selectedModel,
-          (chunk: string) => {
-            setCurrentStreamingMessage((prev) => prev + chunk)
-          },
+          updatedMessages, selectedModel,
+          (chunk: string) => setCurrentStreamingMessage(prev => prev + chunk),
           (fullMessage: string) => {
-            const assistantMessage: ChatMessage = {
-              role: "assistant",
-              content: fullMessage,
-            }
-            setMessages([...updatedMessages, assistantMessage])
+            setMessages([...updatedMessages, { role: "assistant", content: fullMessage }])
             setCurrentStreamingMessage("")
           },
           (error: string) => {
-            const errorMessage: ChatMessage = {
-              role: "assistant",
-              content: `Error: ${error}`,
-            }
-            setMessages([...updatedMessages, errorMessage])
+            setMessages([...updatedMessages, { role: "assistant", content: `Error: ${error}` }])
             setCurrentStreamingMessage("")
           },
         )
       } else {
-        // Use regular API call
         const response = await sendChatMessage(updatedMessages)
-
-        if (response.success) {
-          const assistantMessage: ChatMessage = {
-            role: "assistant",
-            content: response.message ?? "No response generated",
-          }
-          setMessages([...updatedMessages, assistantMessage])
-        } else {
-          const errorMessage: ChatMessage = {
-            role: "assistant",
-            content: `Error: ${response.error}`,
-          }
-          setMessages([...updatedMessages, errorMessage])
-        }
+        setMessages([...updatedMessages, {
+          role: "assistant",
+          content: response.success ? (response.message ?? "No response generated") : `Error: ${response.error}`,
+        }])
       }
     } catch (error) {
       console.error("Failed to send message:", error)
-      const errorMessage: ChatMessage = {
-        role: "assistant",
-        content: "Sorry, I encountered an error. Please try again.",
-      }
-      setMessages([...updatedMessages, errorMessage])
+      setMessages([...updatedMessages, { role: "assistant", content: "Sorry, I encountered an error. Please try again." }])
       setCurrentStreamingMessage("")
     } finally {
       setIsLoading(false)
@@ -108,25 +83,19 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
   }
 
   const handleClearChat = () => {
-    setMessages([
-      {
-        role: "system",
-        content: "You are a helpful AI assistant. Be concise and helpful in your responses.",
-      },
-    ])
+    setMessages([{
+      role: "system",
+      content: "You are a helpful AI assistant. Be concise and helpful in your responses.",
+    }])
   }
 
   const handleExportChat = () => {
     const chatData = {
       timestamp: new Date().toISOString(),
       model: selectedModel,
-      messages: messages.filter((m) => m.role !== "system"),
+      messages: messages.filter(m => m.role !== "system"),
     }
-
-    const blob = new Blob([JSON.stringify(chatData, null, 2)], {
-      type: "application/json",
-    })
-
+    const blob = new Blob([JSON.stringify(chatData, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
@@ -137,25 +106,37 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
     URL.revokeObjectURL(url)
   }
 
-  const visibleMessages = messages.filter((m) => m.role !== "system")
+  const visibleMessages = messages.filter(m => m.role !== "system")
   const hasMessages = visibleMessages.length > 0
 
-  const handleSuggestion = (suggestion: string) => {
-    handleSendMessage(suggestion)
-  }
-
   return (
-    <div className="flex flex-col h-full relative overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full opacity-20 animate-pulse">
-          <div className="w-full h-full rounded-full bg-gradient-to-br from-[#00ff88] via-[#0080ff] to-[#ff0040] blur-3xl"></div>
-        </div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative", overflow: "hidden", background: bg }}>
+      {/* Ambient glow */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden",
+      }}>
+        <div style={{
+          position: "absolute", top: "25%", left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 320, height: 320, borderRadius: "50%",
+          background: "radial-gradient(circle, color-mix(in srgb, var(--color-primary) 15%, transparent), transparent 70%)",
+          filter: "blur(40px)", opacity: 0.6,
+          animation: "pulse 4s ease-in-out infinite",
+        }} />
+        <style>{`@keyframes pulse { 0%,100%{opacity:0.6} 50%{opacity:0.3} }`}</style>
       </div>
 
+      {/* Header */}
       {hasMessages && (
-        <div className="flex items-center justify-between p-4 border-b border-white/10 relative z-10">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-semibold text-white">AI Chat</h2>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px",
+          borderBottom: `1px solid ${borderSub}`,
+          background: surface,
+          position: "relative", zIndex: 10,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <h2 style={{ fontSize: 17, fontWeight: 600, color: text, margin: 0 }}>AI Chat</h2>
             <ModelSelector
               models={models}
               selectedModel={selectedModel}
@@ -163,64 +144,92 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
               disabled={isLoading || isStreaming}
             />
           </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            {/* Streaming toggle */}
+            <button
               onClick={() => setStreamingEnabled(!streamingEnabled)}
-              className={`${streamingEnabled ? "text-[#00ff88]" : "text-gray-400"} hover:text-white`}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "5px 10px", borderRadius: 8, border: "none",
+                background: "transparent", cursor: "pointer",
+                color: streamingEnabled ? "var(--color-success)" : textMuted,
+                fontSize: 13, fontWeight: 500,
+                transition: "color 0.15s",
+              }}
             >
-              {streamingEnabled ? <Zap className="w-4 h-4 mr-2" /> : <MessageSquare className="w-4 h-4 mr-2" />}
+              {streamingEnabled
+                ? <Zap style={{ width: 14, height: 14 }} />
+                : <MessageSquare style={{ width: 14, height: 14 }} />
+              }
               {streamingEnabled ? "Streaming" : "Standard"}
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
+            </button>
+            <button
               onClick={handleExportChat}
               disabled={visibleMessages.length === 0}
-              className="text-gray-400 hover:text-white"
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "5px 10px", borderRadius: 8, border: "none",
+                background: "transparent", cursor: "pointer",
+                color: textMuted, fontSize: 13, fontWeight: 500,
+                opacity: visibleMessages.length === 0 ? 0.4 : 1,
+              }}
             >
-              <Download className="w-4 h-4 mr-2" />
+              <Download style={{ width: 14, height: 14 }} />
               Export
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
+            </button>
+            <button
               onClick={handleClearChat}
               disabled={visibleMessages.length === 0}
-              className="text-gray-400 hover:text-white"
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "5px 10px", borderRadius: 8, border: "none",
+                background: "transparent", cursor: "pointer",
+                color: textMuted, fontSize: 13, fontWeight: 500,
+                opacity: visibleMessages.length === 0 ? 0.4 : 1,
+              }}
             >
-              <Trash2 className="w-4 h-4 mr-2" />
+              <Trash2 style={{ width: 14, height: 14 }} />
               Clear
-            </Button>
+            </button>
           </div>
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden relative z-10">
+      {/* Body */}
+      <div style={{ flex: 1, overflow: "hidden", position: "relative", zIndex: 10 }}>
         {!hasMessages ? (
           <ChatWelcome
             user={user}
-            onSuggestion={handleSuggestion}
+            onSuggestion={handleSendMessage}
             onSendMessage={handleSendMessage}
             disabled={isLoading || isStreaming}
           />
         ) : (
           <>
-            <MessageList
-              messages={visibleMessages}
-              isLoading={isLoading || isStreaming}
-              streamingMessage={currentStreamingMessage}
-            />
-            <div ref={messagesEndRef} />
+            <div style={{ height: "100%", overflowY: "auto", padding: "20px 16px" }}>
+              <div style={{ maxWidth: 720, margin: "0 auto" }}>
+                <MessageList
+                  messages={visibleMessages}
+                  isLoading={isLoading || isStreaming}
+                  streamingMessage={currentStreamingMessage}
+                />
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
           </>
         )}
       </div>
 
-      <div className={`relative z-10 ${hasMessages ? "border-t border-white/10" : ""}`}>
-        <MessageInput onSendMessage={handleSendMessage} disabled={isLoading || isStreaming} />
+      {/* Input */}
+      <div style={{
+        position: "relative", zIndex: 10,
+        borderTop: hasMessages ? `1px solid ${border}` : "none",
+        background: surface,
+      }}>
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          disabled={isLoading || isStreaming}
+        />
       </div>
     </div>
   )
