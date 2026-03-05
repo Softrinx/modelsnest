@@ -1,28 +1,74 @@
 "use client"
 
-import { Card } from "@/components/ui/card"
-import { Bot } from "lucide-react"
+import { Sparkles } from "lucide-react"
+import { useTheme } from "@/contexts/themeContext"
 
 interface StreamingMessageProps {
   content: string
 }
 
 export function StreamingMessage({ content }: StreamingMessageProps) {
+  const { isDark } = useTheme()
+
+  const surface   = isDark ? "#111114" : "#ffffff"
+  const border    = isDark ? "#232329" : "#e0e0de"
+  const text      = isDark ? "#f0f0f2" : "#111113"
+  const textMuted = isDark ? "#6b6b78" : "#888890"
+
   return (
-    <div className="flex gap-4 justify-start">
-      <div className="w-10 h-10 bg-gradient-to-br from-[#8C5CF7] to-[#3B1F82] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-        <Bot className="w-5 h-5 text-white" />
+    <div style={{ display: "flex", gap: 12, justifyContent: "flex-start" }}>
+      {/* AI avatar */}
+      <div style={{
+        width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+        background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 30%, transparent)",
+      }}>
+        <Sparkles style={{ width: 16, height: 16, color: "#fff" }} />
       </div>
 
-      <div className="max-w-[80%]">
-        <Card className="p-3 bg-transparent border-[#2D2D32] shadow-sm">
-          <div className="text-xs font-semibold text-[#A0A0A8] mb-2">AI Assistant</div>
-          <div className="text-white whitespace-pre-wrap leading-relaxed text-sm">
-            {content}
-            <span className="inline-block w-0.5 h-4 bg-gradient-to-b from-[#8C5CF7] to-[#C85CFA] ml-1 animate-pulse rounded-full"></span>
+      {/* Bubble */}
+      <div style={{ maxWidth: "80%" }}>
+        <div style={{
+          padding: "10px 14px",
+          borderRadius: "4px 16px 16px 16px",
+          background: surface,
+          border: `1px solid ${border}`,
+          boxShadow: isDark
+            ? "0 1px 8px rgba(0,0,0,0.35)"
+            : "0 1px 6px rgba(0,0,0,0.07)",
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: textMuted, marginBottom: 6 }}>
+            AI Assistant
           </div>
-        </Card>
+          <div style={{
+            color: text,
+            fontSize: 14,
+            lineHeight: 1.6,
+            whiteSpace: "pre-wrap",
+          }}>
+            {content}
+            {/* Blinking cursor */}
+            <span style={{
+              display: "inline-block",
+              width: 2,
+              height: 14,
+              marginLeft: 3,
+              borderRadius: 2,
+              background: "linear-gradient(to bottom, var(--color-primary), var(--color-accent))",
+              verticalAlign: "middle",
+              animation: "cursorBlink 0.9s ease-in-out infinite",
+            }} />
+          </div>
+        </div>
       </div>
+
+      <style>{`
+        @keyframes cursorBlink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+      `}</style>
     </div>
   )
 }

@@ -41,7 +41,17 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { streamMessage, isStreaming } = useChatStream()
 
-  // ── credits ──────────────────────────────────────────────────────────────
+  // ── Theme tokens ──────────────────────────────────────────────────────────
+  const bg        = isDark ? "#0a0a0c"   : "#f5f5f3"
+  const surface   = isDark ? "#111114"   : "#ffffff"
+  const surfaceEl = isDark ? "#18181c"   : "#f0f0ee"
+  const border    = isDark ? "#232329"   : "#e0e0de"
+  const borderSub = isDark ? "#1c1c22"   : "#e8e8e6"
+  const text      = isDark ? "#f0f0f2"   : "#111113"
+  const textMuted = isDark ? "#6b6b78"   : "#888890"
+  const textSub   = isDark ? "#3d3d48"   : "#c8c8c6"
+
+  // ── Credits ───────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch("/api/user/credits")
       .then(r => r.ok ? r.json() : null)
@@ -56,15 +66,15 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
     } catch {}
   }
 
-  // ── models ────────────────────────────────────────────────────────────────
+  // ── Models ────────────────────────────────────────────────────────────────
   useEffect(() => { getChatModels().then(setModels) }, [])
 
-  // ── scroll ────────────────────────────────────────────────────────────────
+  // ── Scroll ────────────────────────────────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, currentStreamingMessage])
 
-  // ── auto-resize textarea ──────────────────────────────────────────────────
+  // ── Auto-resize textarea ──────────────────────────────────────────────────
   const autoResize = useCallback(() => {
     const ta = textareaRef.current
     if (!ta) return
@@ -74,7 +84,7 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
 
   useEffect(() => { autoResize() }, [inputValue, autoResize])
 
-  // ── send ──────────────────────────────────────────────────────────────────
+  // ── Send ──────────────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isLoading || isStreaming) return
     setInputValue("")
@@ -123,18 +133,8 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
   }
 
   const handleStop = () => {
-    // hook-level abort — expose if useChatStream supports it
+    // expose abort if useChatStream supports it
   }
-
-  // ── theme tokens ──────────────────────────────────────────────────────────
-  const bg        = isDark ? "#0a0a0c"   : "#f5f5f3"
-  const surface   = isDark ? "#111114"   : "#ffffff"
-  const surfaceEl = isDark ? "#18181c"   : "#f0f0ee"
-  const border    = isDark ? "#232329"   : "#e0e0de"
-  const borderSub = isDark ? "#1c1c22"   : "#e8e8e6"
-  const text      = isDark ? "#f0f0f2"   : "#111113"
-  const textMuted = isDark ? "#6b6b78"   : "#888890"
-  const textSub   = isDark ? "#3d3d48"   : "#c8c8c6"
 
   const visibleMessages = messages.filter(m => m.role !== "system")
   const hasMessages = visibleMessages.length > 0
@@ -143,94 +143,62 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
 
   const headerLeft = isMobile ? 0 : sidebarWidth
   const inputLeft  = isMobile ? 0 : sidebarWidth
-
-  // ── avatar initial ────────────────────────────────────────────────────────
   const initials = (user.name?.[0] || user.email?.[0] || "U").toUpperCase()
 
   return (
     <>
       <style>{`
         .chat-textarea {
-          resize: none;
-          outline: none;
-          border: none;
-          background: transparent;
-          width: 100%;
-          font-family: inherit;
-          font-size: 15px;
-          line-height: 1.6;
-          color: ${text};
-          min-height: 24px;
-          max-height: 200px;
-          overflow-y: auto;
-          padding: 0;
-          scrollbar-width: thin;
-          scrollbar-color: ${border} transparent;
+          resize: none; outline: none; border: none;
+          background: transparent; width: 100%;
+          font-family: inherit; font-size: 15px; line-height: 1.6;
+          color: ${text}; min-height: 24px; max-height: 200px;
+          overflow-y: auto; padding: 0;
+          scrollbar-width: thin; scrollbar-color: ${border} transparent;
         }
         .chat-textarea::placeholder { color: ${textMuted}; }
         .chat-textarea::-webkit-scrollbar { width: 4px; }
         .chat-textarea::-webkit-scrollbar-thumb { background: ${border}; border-radius: 4px; }
 
         .send-btn {
-          width: 34px; height: 34px;
-          border-radius: 10px;
-          border: none;
-          cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          transition: opacity 0.15s, transform 0.1s;
-          flex-shrink: 0;
+          width: 34px; height: 34px; border-radius: 10px; border: none;
+          cursor: pointer; display: flex; align-items: center; justify-content: center;
+          transition: opacity 0.15s, transform 0.1s; flex-shrink: 0;
         }
         .send-btn:active { transform: scale(0.93); }
         .send-btn:disabled { cursor: not-allowed; }
 
         .icon-btn {
-          width: 30px; height: 30px;
-          border-radius: 8px;
-          border: none;
-          background: transparent;
-          cursor: pointer;
+          width: 30px; height: 30px; border-radius: 8px; border: none;
+          background: transparent; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          transition: background 0.15s;
-          color: ${textMuted};
+          transition: background 0.15s; color: ${textMuted};
         }
         .icon-btn:hover { background: ${surfaceEl}; color: ${text}; }
 
         .credit-pill {
           display: flex; align-items: center; gap: 6px;
-          padding: 5px 10px;
-          border-radius: 8px;
-          font-size: 12px;
-          font-family: "SF Mono", "Fira Code", monospace;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background 0.15s;
-          border: 1px solid ${border};
-          background: ${surfaceEl};
-          color: ${text};
+          padding: 5px 10px; border-radius: 8px;
+          font-size: 12px; font-family: "SF Mono","Fira Code",monospace;
+          font-weight: 500; cursor: pointer; transition: background 0.15s;
+          border: 1px solid ${border}; background: ${surfaceEl}; color: ${text};
         }
         .credit-pill:hover { background: ${border}; }
 
         .add-credits-btn {
           display: flex; align-items: center; gap: 5px;
-          padding: 5px 12px;
-          border-radius: 8px;
-          font-size: 12px;
-          font-weight: 600;
-          border: 1px solid;
-          cursor: pointer;
-          transition: opacity 0.15s;
+          padding: 5px 12px; border-radius: 8px;
+          font-size: 12px; font-weight: 600; border: 1px solid;
+          cursor: pointer; transition: opacity 0.15s;
           border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
           background: color-mix(in srgb, var(--color-primary) 10%, transparent);
-          color: var(--color-primary);
-          text-decoration: none;
+          color: var(--color-primary); text-decoration: none;
         }
         .add-credits-btn:hover { opacity: 0.8; }
 
         .input-box {
-          border-radius: 16px;
-          border: 1px solid ${border};
-          background: ${surface};
-          overflow: hidden;
+          border-radius: 16px; border: 1px solid ${border};
+          background: ${surface}; overflow: hidden;
           transition: border-color 0.15s, box-shadow 0.15s;
           box-shadow: ${isDark
             ? "0 2px 16px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.03) inset"
@@ -265,8 +233,7 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <Link href="/dashboard/settings" style={{ flexShrink: 0 }}>
             <div style={{
-              width: 30, height: 30,
-              borderRadius: 8,
+              width: 30, height: 30, borderRadius: 8,
               background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
               display: "flex", alignItems: "center", justifyContent: "center",
               boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 35%, transparent)",
@@ -276,10 +243,16 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
             </div>
           </Link>
           <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: text, margin: 0, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <p style={{
+              fontSize: 13, fontWeight: 600, color: text, margin: 0, lineHeight: 1.2,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
               {user.name || "User"}
             </p>
-            <p style={{ fontSize: 11, color: textMuted, margin: 0, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <p style={{
+              fontSize: 11, color: textMuted, margin: 0, lineHeight: 1.2,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
               {user.email}
             </p>
           </div>
@@ -289,7 +262,10 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {credits && (
             <button className="credit-pill" onClick={refreshCredits} title="Click to refresh balance">
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: "var(--color-success)", display: "inline-block",
+              }} />
               ${credits.balance.toFixed(2)}
             </button>
           )}
@@ -307,11 +283,8 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
 
       {/* ── BODY ──────────────────────────────────────────────────────────── */}
       <div style={{
-        paddingTop: 52,
-        minHeight: "100svh",
-        background: bg,
-        display: "flex",
-        flexDirection: "column",
+        paddingTop: 52, minHeight: "100svh",
+        background: bg, display: "flex", flexDirection: "column",
       }}>
         {!hasMessages ? (
           <div style={{ flex: 1, background: bg }}>
@@ -349,7 +322,6 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
       >
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
           <div className="input-box">
-
             {/* Textarea row */}
             <div style={{ padding: "14px 16px 0" }}>
               <textarea
@@ -377,17 +349,10 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
                 <button className="icon-btn" title="Web search">
                   <Globe style={{ width: 15, height: 15 }} />
                 </button>
-                {/* Model label */}
                 <span style={{
-                  marginLeft: 4,
-                  fontSize: 11,
-                  color: textMuted,
-                  fontFamily: "monospace",
-                  padding: "3px 7px",
-                  borderRadius: 6,
-                  background: surfaceEl,
-                  border: `1px solid ${border}`,
-                  lineHeight: 1,
+                  marginLeft: 4, fontSize: 11, color: textMuted,
+                  fontFamily: "monospace", padding: "3px 7px", borderRadius: 6,
+                  background: surfaceEl, border: `1px solid ${border}`, lineHeight: 1,
                 }}>
                   {selectedModel.split("/").pop()}
                 </span>
@@ -395,18 +360,16 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
 
               {/* Right: send / stop */}
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {/* Char hint */}
                 {inputValue.length > 200 && (
                   <span style={{ fontSize: 11, color: textMuted, fontVariantNumeric: "tabular-nums" }}>
                     {inputValue.length}
                   </span>
                 )}
-
                 {busy ? (
                   <button
                     className="send-btn"
                     onClick={handleStop}
-                    style={{ background: isDark ? "#2a2a30" : "#e8e8e6" }}
+                    style={{ background: surfaceEl }}
                     title="Stop generating"
                   >
                     <Square style={{ width: 13, height: 13, fill: text, color: text }} />
@@ -418,18 +381,14 @@ export function DashboardChatInterface({ user }: DashboardChatInterfaceProps) {
                     disabled={!canSend}
                     title="Send (Enter)"
                     style={{
-                      background: canSend
-                        ? "var(--color-primary)"
-                        : isDark ? "#1e1e24" : "#e4e4e2",
+                      background: canSend ? "var(--color-primary)" : surfaceEl,
                       opacity: canSend ? 1 : 0.5,
                     }}
                   >
-                    <ArrowUp
-                      style={{
-                        width: 16, height: 16,
-                        color: canSend ? "#fff" : textSub,
-                      }}
-                    />
+                    <ArrowUp style={{
+                      width: 16, height: 16,
+                      color: canSend ? "#fff" : textSub,
+                    }} />
                   </button>
                 )}
               </div>

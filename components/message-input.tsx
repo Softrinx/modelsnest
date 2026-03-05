@@ -1,9 +1,8 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { Send, Sparkles, Loader2, Paperclip, AtSign } from "lucide-react"
+import { useTheme } from "@/contexts/themeContext"
 
 interface MessageInputProps {
   onSendMessage: (message: string) => void
@@ -13,9 +12,22 @@ interface MessageInputProps {
   variant?: "default" | "welcome"
 }
 
-export function MessageInput({ onSendMessage, disabled = false, placeholder = "Type a message...", className = "", variant = "default" }: MessageInputProps) {
+export function MessageInput({
+  onSendMessage,
+  disabled = false,
+  placeholder = "Type a message...",
+  className = "",
+  variant = "default",
+}: MessageInputProps) {
   const [message, setMessage] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { isDark } = useTheme()
+
+  const surface   = isDark ? "#111114" : "#ffffff"
+  const border    = isDark ? "#232329" : "#e0e0de"
+  const surfaceEl = isDark ? "#18181c" : "#f0f0ee"
+  const text      = isDark ? "#f0f0f2" : "#111113"
+  const textMuted = isDark ? "#6b6b78" : "#888890"
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -24,8 +36,8 @@ export function MessageInput({ onSendMessage, disabled = false, placeholder = "T
     }
   }, [message])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (message.trim() && !disabled) {
       onSendMessage(message.trim())
       setMessage("")
@@ -35,99 +47,161 @@ export function MessageInput({ onSendMessage, disabled = false, placeholder = "T
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      handleSubmit(e as any)
+      handleSubmit()
     }
   }
 
+  const canSend = message.trim().length > 0 && !disabled
+
+  // ── Welcome variant ────────────────────────────────────────────────────────
   if (variant === "welcome") {
     return (
-      <form onSubmit={handleSubmit} className={`w-full ${className}`}>
-        <div className="relative">
-          <div className="flex items-end gap-3 bg-[#202126] border border-[#202126] rounded-2xl p-4 focus-within:border-[#8C5CF7] focus-within:ring-2 focus-within:ring-[#8C5CF7]/20 transition-all duration-200 shadow-lg">
-            <div className="flex-1">
-              <Textarea
-                ref={textareaRef}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={placeholder}
-                disabled={disabled}
-                className="min-h-[44px] max-h-[120px] resize-none bg-transparent border-none text-white placeholder-[#8C8C96] focus:ring-0 focus:outline-none text-base font-medium"
-                rows={1}
-              />
-            </div>
-
-            <Button
-              type="submit"
-              disabled={!message.trim() || disabled}
-              className="bg-gradient-to-r from-[#8C5CF7] to-[#3B1F82] hover:from-[#7C4CF7] hover:to-[#2B0F72] text-white h-11 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {disabled ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
+      <form onSubmit={handleSubmit} className={className} style={{ width: "100%" }}>
+        <div style={{
+          display: "flex", alignItems: "flex-end", gap: 12,
+          background: surface,
+          border: `1px solid ${border}`,
+          borderRadius: 16,
+          padding: "12px 14px",
+          boxShadow: isDark
+            ? "0 2px 16px rgba(0,0,0,0.4)"
+            : "0 2px 16px rgba(0,0,0,0.06)",
+          transition: "border-color 0.15s, box-shadow 0.15s",
+        }}
+          onFocus={() => {}}
+          className="welcome-input-box"
+        >
+          <style>{`
+            .welcome-input-box:focus-within {
+              border-color: color-mix(in srgb, var(--color-primary) 50%, transparent) !important;
+              box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent) !important;
+            }
+          `}</style>
+          <div style={{ flex: 1 }}>
+            <textarea
+              ref={textareaRef}
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              disabled={disabled}
+              rows={1}
+              style={{
+                width: "100%", resize: "none", border: "none", outline: "none",
+                background: "transparent", color: text,
+                fontSize: 15, lineHeight: 1.6,
+                minHeight: 24, maxHeight: 120, overflowY: "auto",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!canSend}
+            style={{
+              height: 40, padding: "0 20px", borderRadius: 10, border: "none",
+              background: canSend
+                ? "linear-gradient(135deg, var(--color-primary), var(--color-accent))"
+                : surfaceEl,
+              color: canSend ? "#fff" : textMuted,
+              cursor: canSend ? "pointer" : "not-allowed",
+              display: "flex", alignItems: "center", gap: 8,
+              fontSize: 14, fontWeight: 600,
+              transition: "opacity 0.15s",
+              opacity: canSend ? 1 : 0.5,
+              flexShrink: 0,
+            }}
+          >
+            {disabled
+              ? <Loader2 style={{ width: 15, height: 15, animation: "spin 1s linear infinite" }} />
+              : <>
+                  <Sparkles style={{ width: 15, height: 15 }} />
                   Send
                 </>
-              )}
-            </Button>
-          </div>
+            }
+          </button>
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </form>
     )
   }
 
+  // ── Default variant ────────────────────────────────────────────────────────
   return (
-    <form onSubmit={handleSubmit} className={`w-full ${className}`}>
-      <div className="relative">
-        {/* Always Floating Chat Input Container */}
-        <div className="flex items-center gap-2 sm:gap-3 bg-[#0D0D0F]/95 backdrop-blur-sm border border-[#202126] rounded-3xl p-3 sm:p-4 focus-within:border-[#8C5CF7] focus-within:ring-2 focus-within:ring-[#8C5CF7]/20 transition-all duration-200 shadow-2xl hover:shadow-3xl mx-2 sm:mx-4 mb-4 min-h-[56px] sm:min-h-[60px] max-h-[56px] sm:max-h-[60px]">
-          {/* Attachment Icon */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-[#A0A0A8] hover:text-white hover:bg-[#202126] p-1.5 sm:p-2 rounded-xl transition-all duration-200 flex-shrink-0"
-          >
-            <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
-          </Button>
+    <form onSubmit={handleSubmit} className={className} style={{ width: "100%" }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        background: isDark ? "#0D0D0F" : "#ffffff",
+        border: `1px solid ${border}`,
+        borderRadius: 30,
+        padding: "8px 12px",
+        margin: "0 16px 16px",
+        boxShadow: isDark
+          ? "0 2px 16px rgba(0,0,0,0.4)"
+          : "0 2px 16px rgba(0,0,0,0.06)",
+        minHeight: 52,
+        maxHeight: 52,
+        transition: "border-color 0.15s, box-shadow 0.15s",
+      }}
+        className="default-input-box"
+      >
+        <style>{`
+          .default-input-box:focus-within {
+            border-color: color-mix(in srgb, var(--color-primary) 50%, transparent) !important;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent) !important;
+          }
+          .icon-action-btn {
+            width: 30px; height: 30px; border-radius: 8px; border: none;
+            background: transparent; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: ${textMuted}; transition: background 0.15s, color 0.15s;
+            flex-shrink: 0;
+          }
+          .icon-action-btn:hover { background: ${surfaceEl}; color: ${text}; }
+        `}</style>
 
-          {/* Mention Icon */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-[#A0A0A8] hover:text-white hover:bg-[#202126] p-1.5 sm:p-2 rounded-xl transition-all duration-200 flex-shrink-0"
-          >
-            <AtSign className="w-4 h-4 sm:w-5 sm:h-5" />
-          </Button>
+        <button type="button" className="icon-action-btn" title="Attach file">
+          <Paperclip style={{ width: 16, height: 16 }} />
+        </button>
+        <button type="button" className="icon-action-btn" title="Mention">
+          <AtSign style={{ width: 16, height: 16 }} />
+        </button>
 
-          {/* Text Input Field */}
-          <div className="flex-1 min-w-0">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Write a message here..."
-              className="w-full bg-transparent border-none text-white placeholder-[#8C8C96] text-sm sm:text-base font-medium focus:outline-none focus:ring-0 h-7 sm:h-8 leading-7 sm:leading-8"
-              disabled={disabled}
-            />
-          </div>
-
-          {/* Send Button */}
-          <Button
-            type="submit"
-            disabled={!message.trim() || disabled}
-            className="bg-[#22C55E] hover:bg-[#16A34A] text-white h-9 w-9 sm:h-10 sm:w-10 p-0 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0"
-          >
-            {disabled ? (
-              <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-            )}
-          </Button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <input
+            type="text"
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Write a message here..."
+            disabled={disabled}
+            style={{
+              width: "100%", border: "none", outline: "none",
+              background: "transparent", color: text,
+              fontSize: 14, fontFamily: "inherit",
+              height: 28, lineHeight: "28px",
+            }}
+          />
         </div>
+
+        <button
+          type="submit"
+          disabled={!canSend}
+          style={{
+            width: 36, height: 36, borderRadius: "50%", border: "none",
+            background: canSend ? "var(--color-success)" : surfaceEl,
+            cursor: canSend ? "pointer" : "not-allowed",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+            transition: "opacity 0.15s, background 0.15s",
+            opacity: canSend ? 1 : 0.4,
+          }}
+        >
+          {disabled
+            ? <Loader2 style={{ width: 15, height: 15, color: textMuted, animation: "spin 1s linear infinite" }} />
+            : <Send style={{ width: 16, height: 16, color: canSend ? "#fff" : textMuted }} />
+          }
+        </button>
       </div>
     </form>
   )
