@@ -152,7 +152,7 @@ export function ApiTokensMain({ user }: ApiTokensMainProps) {
           {/* Action row */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <CreateTokenDialog onTokenCreated={refreshTokenData} />
-            <Link href="/docs/api" style={{ textDecoration: "none" }}>
+            <Link href="/api-docs" style={{ textDecoration: "none" }}>
               <button
                 style={{ display: "flex", alignItems: "center", gap: 7, padding: "0 16px", height: 38,
                   background: "transparent", border: `1px solid ${border}`, color: muted,
