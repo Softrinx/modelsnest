@@ -56,8 +56,8 @@ export function AdminUsersClient({ users }: AdminUsersClientProps) {
 
   const selectStyle = {
     width: "100%", padding: "9px 10px",
-    background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-    border: `1px solid ${border}`, color: text, fontSize: 13, cursor: "pointer",
+    background: isDark ? "#94a3b8" : "rgba(0,0,0,0.02)",
+    border: `1px solid ${border}`, color:"#374151", fontSize: 13, cursor: "pointer",
   }
 
   return (
