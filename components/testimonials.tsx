@@ -39,14 +39,7 @@ const testimonials = [
     role: "Product Manager",
     company: "StartupLab",
     image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face",
-  },
-  {
-    quote: "Text, image, and audio through one clean API. The multimodal capabilities unlocked product features we thought were years away.",
-    author: "Lisa Wang",
-    role: "AI Researcher",
-    company: "InnovateAI",
-    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop&crop=face",
-  },
+  }
 ]
 
 // Duplicate tracks for seamless infinite scroll

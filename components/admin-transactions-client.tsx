@@ -167,7 +167,7 @@ export function AdminTransactionsClient({ transactions }: Props) {
                     <div key={f.label}>
                       <label style={{ display: "block", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: textMuted, marginBottom: 6 }}>{f.label}</label>
                       <select value={f.val} onChange={e => f.set(e.target.value)}
-                        style={{ width: "100%", padding: "8px 10px", background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)", border: `1px solid ${border}`, borderRadius: 4, color: text, fontSize: 13, cursor: "pointer" }}>
+                        style={{ width: "100%", padding: "8px 10px", background: isDark ? "#94a3b8" : "rgba(0,0,0,0.02)", border: `1px solid ${border}`, borderRadius: 4, color: "#030712", fontSize: 13, cursor: "pointer" }}>
                         {f.opts.map(([v, l]) => <option key={String(v)} value={v}>{l}</option>)}
                       </select>
                     </div>

@@ -213,7 +213,7 @@ export function AdminInvoicesClient({ transactions }: AdminInvoicesClientProps) 
                     <div key={f.label}>
                       <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: textMuted, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>{f.label}</label>
                       <select value={f.value} onChange={e => f.setter(e.target.value)}
-                        style={{ width: "100%", padding: "9px 12px", background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)", border: `1px solid ${border}`, borderRadius: 8, color: text, fontSize: 13, cursor: "pointer" }}>
+                        style={{ width: "100%", padding: "9px 12px", background: isDark ? "#94a3b8" : "rgba(0,0,0,0.02)", border: `1px solid ${border}`, borderRadius: 8, color: "#030712", fontSize: 13, cursor: "pointer" }}>
                         {f.options.map(([v, l]) => <option key={String(v)} value={v}>{l}</option>)}
                       </select>
                     </div>

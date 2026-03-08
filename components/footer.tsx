@@ -22,7 +22,7 @@ const sections = [
       { name: "Documentation",  href: "/docs" },
       { name: "API Reference",  href: "/reference" },
       { name: "Tutorials",      href: "/tutorials" },
-      { name: "Changelog",      href: "/changelog" },
+     
     ],
   },
   {
@@ -201,7 +201,7 @@ export function Footer() {
           className="flex flex-col md:flex-row items-center justify-between gap-4 py-6"
         >
           <span className="text-xs font-mono" style={{ color: "var(--color-text-muted)", opacity: 0.5 }}>
-            © 2025 Modelsnest. All rights reserved.
+            © 2026 Modelsnest. All rights reserved.
           </span>
 
           <div className="flex items-center gap-6">
