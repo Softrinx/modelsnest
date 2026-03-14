@@ -22,7 +22,7 @@ interface TeamPageProps { user: DashboardUser }
 type Role = "owner" | "admin" | "developer" | "viewer"
 type MemberStatus = "active" | "pending" | "suspended"
 type View = "list" | "create" | "detail"
-type TeamTier = "free" | "pro" | "enterprise"
+type TeamTier = "pay_as_you_scale" | "enterprise"
 
 interface Member {
   id: string; name: string; email: string; role: Role
@@ -58,9 +58,8 @@ const ROLE_CFG: Record<Role, { label: string; color: string; bg: string; icon: a
 }
 
 const PLAN_CFG = {
-  free:       { label: "Free",       color: "#71717a", bg: "rgba(113,113,122,0.1)" },
-  pro:        { label: "Pro",        color: "#6366f1", bg: "rgba(99,102,241,0.1)"  },
-  enterprise: { label: "Enterprise", color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
+  pay_as_you_scale: { label: "Pay As You Scale", color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
+  enterprise:       { label: "Enterprise",       color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
 }
 
 const AVATAR_COLORS = ["#6366f1", "#10b981", "#ec4899", "#f59e0b", "#06b6d4", "#8b5cf6"]
@@ -669,7 +668,7 @@ function CreateTeamView({ onBack, onCreate, isDark, card, border, text, muted, s
   const [step, setStep]         = useState<1 | 2>(1)
   const [name, setName]         = useState("")
   const [description, setDesc]  = useState("")
-  const [plan, setPlan]         = useState<"free" | "pro" | "enterprise">("free")
+  const [plan, setPlan]         = useState<TeamTier>("pay_as_you_scale")
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteRole, setInviteRole]   = useState<Role>("developer")
   const [pendingInvites, setPendingInvites] = useState<{ email: string; role: Role }[]>([])
@@ -704,9 +703,8 @@ function CreateTeamView({ onBack, onCreate, isDark, card, border, text, muted, s
   }
 
   const PLANS = [
-    { id: "free",       label: "Free",       desc: "Up to 3 members",        color: "#71717a", icon: Globe },
-    { id: "pro",        label: "Pro",         desc: "Up to 20 members",       color: "#6366f1", icon: Building2 },
-    { id: "enterprise", label: "Enterprise",  desc: "Unlimited + SSO",        color: "#f59e0b", icon: NewspaperIcon },
+    { id: "pay_as_you_scale", label: "Pay As You Scale", desc: "No monthly fees", color: "#6366f1", icon: Building2 },
+    { id: "enterprise",       label: "Enterprise",       desc: "Unlimited + SSO", color: "#f59e0b", icon: NewspaperIcon },
   ] as const
 
   if (done) {
