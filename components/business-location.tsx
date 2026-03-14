@@ -76,7 +76,7 @@ export function BusinessLocation() {
             animate={isInView ? { opacity: 1, x: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.1 }}
             style={{
-              borderRadius: "12px",
+              borderRadius: "0px",
               overflow: "hidden",
               border: `1px solid ${border}`,
               minHeight: "380px",
@@ -107,7 +107,7 @@ export function BusinessLocation() {
             style={{
               background: card,
               border: `1px solid ${border}`,
-              borderRadius: "12px",
+              borderRadius: "0px",
               padding: "32px",
               display: "flex",
               flexDirection: "column",

@@ -33,7 +33,7 @@ export function TrustSignals() {
         .logo-track {
           display: flex;
           width: max-content;
-          animation: scroll-left 28s linear infinite;
+          animation: scroll-left 40s linear infinite;
         }
         .logo-track:hover {
           animation-play-state: paused;
@@ -42,70 +42,74 @@ export function TrustSignals() {
 
       <section
         ref={ref}
-        className="relative py-16 overflow-hidden"
-        style={{ background: "var(--color-bg)" }}
+        className="relative py-20 overflow-hidden"
+        style={{
+          background: isDark ? "#111113" : "#f4f4f2",
+          borderTop: "1px solid var(--color-border)",
+          borderBottom: "1px solid var(--color-border)",
+        }}
       >
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
-          className="text-center mb-10"
+          className="text-center mb-14"
         >
           <p
-            className="text-xs font-mono tracking-widest uppercase"
-            style={{ color: "var(--color-text-muted)", opacity: 0.6 }}
+            style={{
+              fontSize: "11px",
+              fontFamily: "monospace",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: isDark ? "#71717a" : "#52525b",
+            }}
           >
             Trusted by teams at
           </p>
         </motion.div>
 
-        {/* Logo strip — fade edges */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={isInView ? { opacity: 1 } : {}}
-          transition={{ duration: 0.8, delay: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
           className="overflow-hidden"
           style={{
-            maskImage: "linear-gradient(90deg, transparent, black 8%, black 92%, transparent)",
+            maskImage:
+              "linear-gradient(90deg, transparent, black 6%, black 94%, transparent)",
           }}
         >
-          <div className="logo-track" style={{ gap: "0px" }}>
+          <div className="logo-track">
             {track.map((logo, i) => (
               <div
                 key={i}
                 style={{
-                  width: "160px",
+                  width: "240px",
                   flexShrink: 0,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  padding: "0 32px",
-                  borderRight: "1px solid var(--color-border)",
-                  height: "60px",
+                  height: "100px",
+                  borderRight: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.09)"}`,
+                  cursor: "pointer",
+                  opacity: 0.75,
+                  transition: "opacity 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = "1"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = "0.75"
                 }}
               >
                 <Image
                   src={logo.src}
                   alt={logo.alt}
-                  width={80}
-                  height={28}
+                  width={160}
+                  height={56}
                   style={{
                     objectFit: "contain",
-                    filter: isDark
-                      ? "brightness(0) invert(1) opacity(0.35)"
-                      : "brightness(0) opacity(0.25)",
-                    transition: "filter 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.filter = isDark
-                      ? "brightness(0) invert(1) opacity(0.8)"
-                      : "brightness(0) opacity(0.6)"
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.filter = isDark
-                      ? "brightness(0) invert(1) opacity(0.35)"
-                      : "brightness(0) opacity(0.25)"
+                    maxHeight: "56px",
+                    width: "auto",
                   }}
                 />
               </div>
