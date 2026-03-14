@@ -1,7 +1,6 @@
 "use client"
 
-import { motion, useInView } from "framer-motion"
-import { useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useTheme } from "@/contexts/themeContext"
 
 const testimonials = [
@@ -42,142 +41,283 @@ const testimonials = [
   },
 ]
 
-function TestimonialCard({ t, index }: { t: typeof testimonials[0]; index: number }) {
-  const { isDark } = useTheme()
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: "-40px" })
+function getState(index: number, current: number, total: number) {
+  const offset = ((index - current) % total + total) % total
+  if (offset === 0) return "center"
+  if (offset === 1) return "right"
+  if (offset === 2) return "far-right"
+  if (offset === total - 1) return "left"
+  if (offset === total - 2) return "far-left"
+  return "hidden"
+}
 
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 40 }}
-      animate={isInView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.6, delay: index * 0.12, ease: [0.25, 0.46, 0.45, 0.94] }}
-      whileHover={{ y: -6, transition: { duration: 0.2 } }}
-      className="flex flex-col gap-5 p-7 h-full"
-      style={{
-        background: "var(--color-surface-2)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "2px",
-        cursor: "default",
-        transition: "box-shadow 0.2s",
-      }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 0 1px var(--color-primary), 0 8px 32px rgba(0,0,0,0.18)"
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "none"
-      }}
-    >
-      <div
-        className="text-5xl font-black leading-none select-none"
-        style={{ color: "var(--color-primary)", opacity: 0.4, lineHeight: 0.8 }}
-      >
-        "
-      </div>
-
-      <p className="text-sm leading-relaxed flex-1" style={{ color: "var(--color-text)" }}>
-        {t.quote}
-      </p>
-
-      <div
-        className="flex items-center gap-3 pt-4"
-        style={{ borderTop: "1px solid var(--color-border)" }}
-      >
-        <img
-          src={t.image}
-          alt={t.author}
-          className="w-10 h-10 object-cover flex-shrink-0"
-          style={{
-            filter: isDark ? "grayscale(20%)" : "grayscale(30%)",
-            borderRadius: "2px",
-          }}
-        />
-        <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-bold" style={{ color: "var(--color-text)" }}>
-            {t.author}
-          </span>
-          <span className="text-xs font-mono" style={{ color: "var(--color-text-muted)" }}>
-            {t.role}, {t.company}
-          </span>
-        </div>
-      </div>
-    </motion.div>
-  )
+const stateStyles: Record<string, React.CSSProperties> = {
+  center: {
+    transform: "translateX(0) scale(1) rotateY(0deg)",
+    opacity: 1,
+    zIndex: 10,
+  },
+  right: {
+    transform: "translateX(280px) scale(0.82) rotateY(-18deg)",
+    opacity: 0.35,
+    zIndex: 5,
+  },
+  "far-right": {
+    transform: "translateX(430px) scale(0.68) rotateY(-24deg)",
+    opacity: 0.12,
+    zIndex: 3,
+  },
+  left: {
+    transform: "translateX(-280px) scale(0.82) rotateY(18deg)",
+    opacity: 0.35,
+    zIndex: 5,
+  },
+  "far-left": {
+    transform: "translateX(-430px) scale(0.68) rotateY(24deg)",
+    opacity: 0.12,
+    zIndex: 3,
+  },
+  hidden: {
+    transform: "translateX(600px) scale(0.6) rotateY(-30deg)",
+    opacity: 0,
+    zIndex: 1,
+    pointerEvents: "none" as const,
+  },
 }
 
 export function Testimonials() {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: "-80px" })
+  const { isDark } = useTheme()
+  const [current, setCurrent] = useState(0)
+  const [animating, setAnimating] = useState(false)
+  const n = testimonials.length
+
+  const go = useCallback(
+    (dir: number) => {
+      if (animating) return
+      setAnimating(true)
+      setCurrent((prev) => ((prev + dir) % n + n) % n)
+      setTimeout(() => setAnimating(false), 500)
+    },
+    [animating, n]
+  )
+
+  useEffect(() => {
+    const timer = setInterval(() => go(1), 4500)
+    return () => clearInterval(timer)
+  }, [go])
 
   return (
     <section
-      ref={ref}
       className="relative py-28 overflow-hidden"
       style={{ background: "var(--color-bg)" }}
     >
       {/* Header */}
-      <div className="max-w-7xl mx-auto px-6 mb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-end">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6 }}
-            className="flex flex-col gap-4"
-          >
-            <span
-              className="text-xs font-mono tracking-widest uppercase"
-              style={{ color: "var(--color-primary)" }}
-            >
-              Testimonials
-            </span>
-            <h2
-              style={{
-                fontSize: "clamp(2.2rem, 5vw, 4rem)",
-                fontWeight: 900,
-                lineHeight: 1.05,
-                letterSpacing: "-0.03em",
-                color: "var(--color-text)",
-              }}
-            >
-              What Developers{" "}
-              <span
-                style={{
-                  background: "linear-gradient(90deg, var(--color-primary), var(--color-accent))",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}
-              >
-                Are Saying
-              </span>
-            </h2>
-          </motion.div>
-
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-lg leading-relaxed"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Thousands of developers and enterprises run production AI on Modelsnest. Here's what they say.
-          </motion.p>
-        </div>
-      </div>
-
-      {/* Cards grid — all 5 visible, staggered fade-in */}
-      <div className="max-w-7xl mx-auto px-6">
-        <div
-          className="grid gap-5"
+      <div className="text-center mb-12">
+        <p
+          className="text-xs font-mono tracking-widest uppercase mb-3"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          Testimonials
+        </p>
+        <h2
           style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            fontSize: "clamp(2rem, 4vw, 3.2rem)",
+            fontWeight: 900,
+            lineHeight: 1.1,
+            letterSpacing: "-0.03em",
+            color: "var(--color-text)",
           }}
         >
-          {testimonials.map((t, i) => (
-            <TestimonialCard key={i} t={t} index={i} />
+          What developers{" "}
+          <span
+            style={{
+              background: "linear-gradient(90deg, var(--color-primary), var(--color-accent))",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            are saying
+          </span>
+        </h2>
+      </div>
+
+      {/* Stage */}
+      <div
+        className="relative flex justify-center items-center"
+        style={{ minHeight: "280px", perspective: "1000px" }}
+      >
+        {testimonials.map((t, i) => {
+          const state = getState(i, current, n)
+          const isCenter = state === "center"
+          return (
+            <div
+              key={i}
+              onClick={() => {
+                if (animating || isCenter) return
+                const offset = ((i - current) % n + n) % n
+                go(offset > n / 2 ? -1 : 1)
+              }}
+              style={{
+                position: "absolute",
+                width: "340px",
+                padding: "28px",
+                background: "var(--color-surface-2)",
+                border: isCenter
+                  ? "1px solid var(--color-primary)"
+                  : "1px solid var(--color-border)",
+                borderRadius: "12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px",
+                cursor: isCenter ? "default" : "pointer",
+                transition:
+                  "transform 0.55s cubic-bezier(0.34,1.28,0.64,1), opacity 0.4s ease, border-color 0.3s ease",
+                willChange: "transform, opacity",
+                ...stateStyles[state],
+              }}
+            >
+              {/* Quote mark */}
+              <div
+                style={{
+                  fontSize: "48px",
+                  fontWeight: 900,
+                  lineHeight: 0.6,
+                  color: "var(--color-primary)",
+                  opacity: 0.25,
+                  userSelect: "none",
+                  fontFamily: "Georgia, serif",
+                }}
+              >
+                "
+              </div>
+
+              {/* Quote text */}
+              <p
+                style={{
+                  fontSize: "14px",
+                  lineHeight: 1.65,
+                  color: "var(--color-text-muted)",
+                  flex: 1,
+                }}
+              >
+                {t.quote}
+              </p>
+
+              {/* Author */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  paddingTop: "14px",
+                  borderTop: "1px solid var(--color-border)",
+                }}
+              >
+                <img
+                  src={t.image}
+                  alt={t.author}
+                  style={{
+                    width: "38px",
+                    height: "38px",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    flexShrink: 0,
+                    filter: isDark ? "grayscale(20%)" : "grayscale(30%)",
+                  }}
+                />
+                <div>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      color: "var(--color-text)",
+                    }}
+                  >
+                    {t.author}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--color-text-muted)",
+                      fontFamily: "monospace",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {t.role}, {t.company}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center justify-center gap-5 mt-10">
+        <button
+          onClick={() => go(-1)}
+          style={{
+            width: "38px",
+            height: "38px",
+            borderRadius: "50%",
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface-2)",
+            color: "var(--color-text)",
+            cursor: "pointer",
+            fontSize: "15px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.15s",
+          }}
+        >
+          ←
+        </button>
+
+        {/* Dots */}
+        <div className="flex items-center gap-2">
+          {testimonials.map((_, i) => (
+            <div
+              key={i}
+              onClick={() => {
+                if (i === current) return
+                go(i > current ? 1 : -1)
+              }}
+              style={{
+                height: "6px",
+                borderRadius: "3px",
+                background:
+                  i === current
+                    ? "var(--color-primary)"
+                    : "var(--color-border)",
+                width: i === current ? "20px" : "6px",
+                transition: "width 0.3s ease, background 0.3s ease",
+                cursor: "pointer",
+              }}
+            />
           ))}
         </div>
+
+        <button
+          onClick={() => go(1)}
+          style={{
+            width: "38px",
+            height: "38px",
+            borderRadius: "50%",
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface-2)",
+            color: "var(--color-text)",
+            cursor: "pointer",
+            fontSize: "15px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.15s",
+          }}
+        >
+          →
+        </button>
       </div>
     </section>
   )
