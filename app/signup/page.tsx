@@ -65,7 +65,6 @@ export default function SignupPage() {
   ]
 
   const perks = [
-    "10,000 free API calls to start",
     "No credit card required",
     "Access all 50+ models instantly",
     "Cancel or upgrade anytime",
