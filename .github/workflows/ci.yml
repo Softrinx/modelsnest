@@ -27,8 +27,9 @@ env:
   PAYPAL_CLIENT_SECRET_LIVE: ${{ secrets.PAYPAL_CLIENT_SECRET_LIVE || 'ci-paypal-live-client-secret' }}
   PAYPAL_WEBHOOK_ID_SANDBOX: ${{ secrets.PAYPAL_WEBHOOK_ID_SANDBOX || 'ci-paypal-sandbox-webhook-id' }}
   PAYPAL_WEBHOOK_ID_LIVE: ${{ secrets.PAYPAL_WEBHOOK_ID_LIVE || 'ci-paypal-live-webhook-id' }}
-  COINBASE_COMMERCE_API_KEY: ${{ secrets.COINBASE_COMMERCE_API_KEY || 'ci-coinbase-api-key' }}
-  COINBASE_COMMERCE_WEBHOOK_SECRET: ${{ secrets.COINBASE_COMMERCE_WEBHOOK_SECRET || 'ci-coinbase-webhook-secret' }}
+  PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY || 'ci-paystack-secret-key' }}
+  PAYSTACK_PUBLIC_KEY: ${{ secrets.PAYSTACK_PUBLIC_KEY || 'ci-paystack-public-key' }}
+  NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: ${{ secrets.PAYSTACK_PUBLIC_KEY || 'ci-paystack-public-key' }}
   NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://ci.example.com' }}
   APP_URL: ${{ secrets.APP_URL || 'https://ci.example.com' }}
 

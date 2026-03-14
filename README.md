@@ -15,7 +15,7 @@ Modelsnest is a production-grade AI API aggregation platform that provides unifi
 | Styling | Tailwind CSS |
 | Database | Supabase (PostgreSQL) |
 | Authentication | Custom auth with Supabase |
-| Payments | PayPal + Coinbase Commerce |
+| Payments | PayPal + Paystack |
 | Package Manager | pnpm |
 
 ---
@@ -104,7 +104,6 @@ Modelsnest/
 │   ├── chat-main.tsx                   # Chat page main layout
 │   ├── chat-message.tsx                # Individual chat message bubble
 │   ├── chat-welcome.tsx                # Chat empty state / welcome screen
-│   ├── coinbase-button.tsx             # Coinbase Commerce payment button
 │   ├── competitive-edge.tsx            # Landing page competitive advantages section
 │   ├── create-token-dialog.tsx         # Dialog to create a new API token
 │   ├── cta-section.tsx                 # Call-to-action section
@@ -172,7 +171,6 @@ Modelsnest/
 │   ├── api-utils.ts            # Shared API helper functions (error handling, response formatting)
 │   ├── auth.ts                 # Authentication helpers (session, JWT, middleware utils)
 │   ├── chat-api.ts             # Client-side functions for calling chat/completion endpoints
-│   ├── coinbase.ts             # Coinbase Commerce SDK integration
 │   ├── db.ts                   # Supabase client initialization and DB query helpers
 │   ├── get-app-url.ts          # Utility to get the correct app base URL (dev vs prod)
 │   ├── paypal.ts               # PayPal SDK integration (current)
@@ -252,11 +250,12 @@ Two payment providers are integrated:
 - Order creation and capture via PayPal REST API
 - Legacy integration preserved in `lib/paypal-legacy.ts`
 
-**Coinbase Commerce** (`lib/coinbase.ts`)
-- Crypto payment option for credit top-ups
-- Webhook-based payment confirmation
+**Paystack** (`lib/paystack.ts`)
+- Hosted checkout for credit top-ups
+- Server-side transaction verification on return
+- Webhook signature verification support
 
-Both providers write to the `transactions` table and update the user's `balances` record on successful payment.
+Both providers write to the credit transaction ledger and update the user's balance on successful payment.
 
 ---
 
@@ -290,9 +289,12 @@ PAYPAL_CLIENT_ID=
 PAYPAL_CLIENT_SECRET=
 NEXT_PUBLIC_PAYPAL_CLIENT_ID=
 
-# Coinbase Commerce
-COINBASE_COMMERCE_API_KEY=
-COINBASE_COMMERCE_WEBHOOK_SECRET=
+# Paystack
+PAYSTACK_SECRET_KEY=
+PAYSTACK_PUBLIC_KEY=
+NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=
+PAYSTACK_CURRENCY=USD
+PAYSTACK_USD_TO_CHARGE_RATE=1
 
 # Auth
 AUTH_SECRET=

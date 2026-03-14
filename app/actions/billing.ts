@@ -205,8 +205,8 @@ export async function createTopUp(formData: FormData) {
     const paymentMethod = String(formData.get("paymentMethod") || "manual").toLowerCase()
     const paypalOrderId = formData.get("paypalOrderId") as string | null
     const paypalCaptureId = formData.get("paypalCaptureId") as string | null
-    const coinbaseChargeId = formData.get("coinbaseChargeId") as string | null
-    const referenceId = paypalOrderId || paypalCaptureId || coinbaseChargeId || null
+    const paystackReferenceId = formData.get("paystackReferenceId") as string | null
+    const referenceId = paypalOrderId || paypalCaptureId || paystackReferenceId || null
 
     if (!amount || amount <= 0) {
       return { success: false, error: "Invalid amount" }
@@ -251,8 +251,8 @@ export async function createTopUp(formData: FormData) {
 
     const methodLabel = paymentMethod === "paypal"
       ? "PayPal"
-      : paymentMethod === "coinbase"
-        ? "Coinbase"
+      : paymentMethod === "paystack"
+        ? "Paystack"
         : "Manual"
 
     const { data: insertedTopUp, error: insertError } = await adminSupabase
@@ -268,7 +268,7 @@ export async function createTopUp(formData: FormData) {
           source: paymentMethod,
           paypalOrderId,
           paypalCaptureId,
-          coinbaseChargeId,
+          paystackReferenceId,
         },
       })
       .select("id, amount, created_at")

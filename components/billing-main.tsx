@@ -270,7 +270,7 @@ export function BillingMain({ user }: BillingMainProps) {
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 0" }}>
             <Shield className="w-3 h-3" style={{ color: subtle }} />
             <span style={{ fontSize: 11, color: subtle }}>
-              Payments processed securely via PayPal & Coinbase Commerce. Credits are non-refundable.
+              Payments processed securely via PayPal & Paystack. Credits are non-refundable.
             </span>
           </div>
         </div>

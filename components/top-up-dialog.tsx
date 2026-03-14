@@ -3,9 +3,9 @@
 import type React from "react"
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Wallet, Bitcoin, CheckCircle, AlertCircle, ChevronRight, Zap, Shield, X } from "lucide-react"
+import { Wallet, CreditCard, CheckCircle, AlertCircle, ChevronRight, Zap, Shield, X } from "lucide-react"
 import { PayPalButton } from "@/components/paypal-button"
-import { CoinbaseButton } from "@/components/coinbase-button"
+import { PaystackButton } from "@/components/paystack-button"
 import { useTheme } from "@/contexts/themeContext"
 
 interface TopUpDialogProps {
@@ -20,7 +20,7 @@ export function TopUpDialog({ open, onOpenChange, onSuccess }: TopUpDialogProps)
   const { isDark } = useTheme()
   const [amount, setAmount]               = useState(100)
   const [customAmount, setCustomAmount]   = useState("")
-  const [selectedMethod, setSelectedMethod] = useState<"paypal" | "coinbase">("paypal")
+  const [selectedMethod, setSelectedMethod] = useState<"paypal" | "paystack">("paypal")
   const [success, setSuccess]             = useState(false)
   const [error, setError]                 = useState("")
 
@@ -154,9 +154,9 @@ export function TopUpDialog({ open, onOpenChange, onSuccess }: TopUpDialogProps)
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {([
                 { id: "paypal",   label: "PayPal",   sub: "Credit card, debit card, or PayPal account",  icon: Wallet,  color: "#0ea5e9" },
-                { id: "coinbase", label: "Coinbase",  sub: "Bitcoin, Ethereum, USDC and more",            icon: Bitcoin, color: "#f59e0b" },
+                { id: "paystack", label: "Paystack",  sub: "Card, bank transfer, USSD and more",          icon: CreditCard, color: "#00C3F7" },
               ] as const).map(m => {
-                const sel = selectedMethod === m.id
+                const sel = selectedMethod === (m.id as "paypal" | "paystack")
                 return (
                   <button key={m.id} onClick={() => setSelectedMethod(m.id)}
                     style={{
@@ -217,7 +217,7 @@ export function TopUpDialog({ open, onOpenChange, onSuccess }: TopUpDialogProps)
               selectedMethod === "paypal" ? (
                 <PayPalButton amount={finalAmount} onSuccess={handlePaymentSuccess} onError={setError} onCancel={() => setError("Payment cancelled")} />
               ) : (
-                <CoinbaseButton amount={finalAmount} onError={setError} />
+                <PaystackButton amount={finalAmount} onError={setError} />
               )
             ) : (
               <button disabled style={{
@@ -245,7 +245,7 @@ export function TopUpDialog({ open, onOpenChange, onSuccess }: TopUpDialogProps)
             {/* Security note */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 4 }}>
               <Shield className="w-3 h-3" style={{ color: subtle }} />
-              <span style={{ fontSize: 10, color: subtle }}>Secured by PayPal & Coinbase Commerce · Credits are non-refundable</span>
+              <span style={{ fontSize: 10, color: subtle }}>Secured by PayPal & Paystack · Credits are non-refundable</span>
             </div>
           </div>
         </div>
