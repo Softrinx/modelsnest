@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
     }
 
     const apiKey =
-      (await getActiveProviderApiKey("novita")) ||
-      process.env.NOVITA_API_KEY ||
-      (await getActiveProviderApiKey("models_lab")) ||
-      process.env.MODELSLAB_API_KEY
+    await getActiveProviderApiKey("novita").catch(() => null) ||
+    process.env.NOVITA_API_KEY ||
+    await getActiveProviderApiKey("models_lab").catch(() => null) ||
+    process.env.MODELSLAB_API_KEY
     if (!apiKey) {
       return new Response(
         JSON.stringify({

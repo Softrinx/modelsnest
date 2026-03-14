@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-// import { signup } from "@/app/actions/auth"
-import { Loader2, User, Mail, Lock, Eye, EyeOff, Shield } from "lucide-react"
+import { Loader2, User, Mail, Lock, Eye, EyeOff, Shield, MapPin } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 export function SignupForm() {
@@ -17,14 +16,13 @@ export function SignupForm() {
 
   const supabase = createClient()
 
-  // Fallback timeout to prevent infinite loading
   useEffect(() => {
     let timeoutId: NodeJS.Timeout
     if (isLoading) {
       timeoutId = setTimeout(() => {
         setIsLoading(false)
         setError("Request timed out. Please try again.")
-      }, 30000) // 30 second timeout
+      }, 30000)
     }
     return () => {
       if (timeoutId) clearTimeout(timeoutId)
@@ -32,12 +30,10 @@ export function SignupForm() {
   }, [isLoading])
 
   async function handleSubmit(formData: FormData) {
-    console.log("Starting signup process...")
     setIsLoading(true)
     setError(null)
 
     try {
-      console.log("Calling signup action...")
       const result = await supabase.auth.signUp({
         email: formData.get("email") as string,
         password: formData.get("password") as string,
@@ -47,10 +43,8 @@ export function SignupForm() {
           },
         },
       })
-      console.log("Signup result:", result)
 
       if (result.error) {
-        console.log("Signup failed with error:", result.error)
         setError(result.error.message)
         setIsLoading(false)
       } else {
@@ -60,7 +54,10 @@ export function SignupForm() {
         if (userId && hasSession) {
           const { error: profileError } = await supabase
             .from("profiles")
-            .upsert({ id: userId }, { onConflict: "id" })
+            .upsert({
+              id: userId,
+              address: formData.get("address") as string
+            }, { onConflict: "id" })
 
           if (profileError) {
             console.error("Profile creation error:", profileError)
@@ -70,7 +67,6 @@ export function SignupForm() {
           }
         }
 
-        console.log("Signup successful, redirecting...")
         setIsLoading(false)
         router.push("/dashboard")
       }
@@ -83,56 +79,58 @@ export function SignupForm() {
 
   return (
     <div className={`w-full max-w-md mx-auto transition-all duration-300 ${isLoading ? 'opacity-90' : 'opacity-100'}`}>
-      <form onSubmit={(e) => {
-        e.preventDefault()
-        const formData = new FormData(e.currentTarget)
-        handleSubmit(formData)
-      }} className="space-y-6">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          const formData = new FormData(e.currentTarget)
+          handleSubmit(formData)
+        }}
+        className="space-y-6"
+      >
         {error && (
           <div className="bg-[#1A1B1F] border border-[#EF4444]/30 rounded-xl p-4 hover:shadow-lg hover:shadow-[#EF4444]/10 transition-all duration-300">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-[#EF4444] animate-pulse"></div>
+              <div className="w-3 h-3 rounded-full bg-[#EF4444] animate-pulse" />
               <p className="text-sm text-[#E0E0E0] font-medium">{error}</p>
             </div>
           </div>
         )}
 
+        {/* Full Name */}
         <div className="space-y-3">
           <Label htmlFor="name" className="text-sm font-semibold text-[#E0E0E0] flex items-center gap-2">
             <User className="w-4 h-4 text-[#8C5CF7]" />
             Full Name
           </Label>
-          <div className="relative">
-            <Input
-              id="name"
-              name="name"
-              type="text"
-              required
-              disabled={isLoading}
-              className="bg-[#1A1B1F] border border-[#202126] focus:border-[#8C5CF7]/60 focus:ring-[#8C5CF7]/30 h-14 pl-4 pr-4 rounded-xl transition-all duration-300 hover:border-[#8C5CF7]/30 disabled:opacity-50 disabled:cursor-not-allowed text-base text-[#FFFFFF] placeholder-[#5A5A64]"
-              placeholder="Enter your full name"
-            />
-          </div>
+          <Input
+            id="name"
+            name="name"
+            type="text"
+            required
+            disabled={isLoading}
+            placeholder="Enter your full name"
+            className="bg-[#1A1B1F] border border-[#202126] focus:border-[#8C5CF7]/60 focus:ring-[#8C5CF7]/30 h-14 pl-4 pr-4 rounded-xl transition-all duration-300 hover:border-[#8C5CF7]/30 disabled:opacity-50 disabled:cursor-not-allowed text-base text-[#FFFFFF] placeholder-[#5A5A64]"
+          />
         </div>
 
+        {/* Email */}
         <div className="space-y-3">
           <Label htmlFor="email" className="text-sm font-semibold text-[#E0E0E0] flex items-center gap-2">
             <Mail className="w-4 h-4 text-[#8C5CF7]" />
             Email Address
           </Label>
-          <div className="relative">
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              required
-              disabled={isLoading}
-              className="bg-[#1A1B1F] border border-[#202126] focus:border-[#8C5CF7]/60 focus:ring-[#8C5CF7]/30 h-14 pl-4 pr-4 rounded-xl transition-all duration-300 hover:border-[#8C5CF7]/30 disabled:opacity-50 disabled:cursor-not-allowed text-base text-[#FFFFFF] placeholder-[#5A5A64]"
-              placeholder="Enter your email address"
-            />
-          </div>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            required
+            disabled={isLoading}
+            placeholder="Enter your email address"
+            className="bg-[#1A1B1F] border border-[#202126] focus:border-[#8C5CF7]/60 focus:ring-[#8C5CF7]/30 h-14 pl-4 pr-4 rounded-xl transition-all duration-300 hover:border-[#8C5CF7]/30 disabled:opacity-50 disabled:cursor-not-allowed text-base text-[#FFFFFF] placeholder-[#5A5A64]"
+          />
         </div>
 
+        {/* Password */}
         <div className="space-y-3">
           <Label htmlFor="password" className="text-sm font-semibold text-[#E0E0E0] flex items-center gap-2">
             <Lock className="w-4 h-4 text-[#8C5CF7]" />
@@ -145,8 +143,8 @@ export function SignupForm() {
               type={showPassword ? "text" : "password"}
               required
               disabled={isLoading}
-              className="bg-[#1A1B1F] border border-[#202126] focus:border-[#8C5CF7]/60 focus:ring-[#8C5CF7]/30 h-14 pl-4 pr-12 rounded-xl transition-all duration-300 hover:border-[#8C5CF7]/30 disabled:opacity-50 disabled:cursor-not-allowed text-base text-[#FFFFFF] placeholder-[#5A5A64]"
               placeholder="Create a secure password"
+              className="bg-[#1A1B1F] border border-[#202126] focus:border-[#8C5CF7]/60 focus:ring-[#8C5CF7]/30 h-14 pl-4 pr-12 rounded-xl transition-all duration-300 hover:border-[#8C5CF7]/30 disabled:opacity-50 disabled:cursor-not-allowed text-base text-[#FFFFFF] placeholder-[#5A5A64]"
             />
             <button
               type="button"
@@ -160,12 +158,27 @@ export function SignupForm() {
           <p className="text-xs text-[#5A5A64]">Minimum 8 characters required</p>
         </div>
 
+       {/* Address */}
+<div className="space-y-3">
+  <Label className="text-sm font-semibold text-[#E0E0E0] flex items-center gap-2">
+    <MapPin className="w-4 h-4 text-[#8C5CF7]" />
+    Address
+  </Label>
+  <Input
+    name="address"
+    type="text"
+    disabled={isLoading}
+    placeholder="123 Street, City, Country"
+    className="bg-[#1A1B1F] border border-[#202126] focus:border-[#8C5CF7]/60 focus:ring-[#8C5CF7]/30 h-14 pl-4 rounded-xl transition-all duration-300 hover:border-[#8C5CF7]/30 disabled:opacity-50 disabled:cursor-not-allowed text-base text-[#FFFFFF] placeholder-[#5A5A64]"
+  />
+</div>
+        {/* Submit */}
         <Button
           type="submit"
           disabled={isLoading}
           className={`w-full h-14 text-base font-semibold rounded-xl transition-all duration-300 border shadow-lg text-white ${
-            isLoading 
-              ? 'bg-[#1A1B1F] border-[#8C5CF7]/30 shadow-[#8C5CF7]/10 cursor-not-allowed' 
+            isLoading
+              ? 'bg-[#1A1B1F] border-[#8C5CF7]/30 shadow-[#8C5CF7]/10 cursor-not-allowed'
               : 'bg-gradient-to-r from-[#8C5CF7] to-[#3B1F82] hover:from-[#3B1F82] hover:to-[#8C5CF7] border-[#8C5CF7]/30 shadow-[#8C5CF7]/20 hover:shadow-xl hover:shadow-[#8C5CF7]/30'
           }`}
         >
@@ -181,7 +194,7 @@ export function SignupForm() {
             </>
           )}
         </Button>
-        
+
         {isLoading && (
           <div className="text-center">
             <p className="text-xs text-[#8C5CF7] animate-pulse">
@@ -193,8 +206,12 @@ export function SignupForm() {
         <div className="text-center pt-2">
           <p className="text-xs text-[#5A5A64]">
             By creating an account, you agree to our{" "}
-            <button className="text-[#8C5CF7] hover:text-[#C85CFA] hover:underline underline-offset-4 font-medium">Terms of Service</button> and{" "}
-            <button className="text-[#8C5CF7] hover:text-[#C85CFA] hover:underline underline-offset-4 font-medium">Privacy Policy</button>
+            <button type="button" className="text-[#8C5CF7] hover:text-[#C85CFA] hover:underline underline-offset-4 font-medium">
+              Terms of Service
+            </button>{" "}and{" "}
+            <button type="button" className="text-[#8C5CF7] hover:text-[#C85CFA] hover:underline underline-offset-4 font-medium">
+              Privacy Policy
+            </button>
           </p>
         </div>
       </form>

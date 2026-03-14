@@ -9,6 +9,8 @@ import { PricingSection } from "@/components/pricing-section"
 import { FinalCTA } from "@/components/final-cta"
 import { Footer } from "@/components/footer"
 import type { Metadata } from 'next'
+import { TrustSignals } from "@/components/trust-signals"
+import { BusinessLocation } from "@/components/business-location"
 
 export const metadata: Metadata = {
   title: 'Enterprise AI APIs Built for Scale',
@@ -66,6 +68,8 @@ export default function LandingPage() {
       <Testimonials />
       <PricingSection />
       <FinalCTA />
+      <TrustSignals />
+<BusinessLocation />
       <Footer />
     </div>
   )
